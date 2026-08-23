@@ -5,6 +5,7 @@ from __future__ import annotations
 from homeassistant.core import HomeAssistant
 
 from .actions import KIND_DEPLOY, KIND_DISMISS, KIND_LATER, KIND_RUN, encode_action
+from .push_format import flatten_actions_for_fcm
 
 
 def _mobile_payload(*, title: str, body: str, tag: str, actions: list[dict]) -> dict:
@@ -13,11 +14,13 @@ def _mobile_payload(*, title: str, body: str, tag: str, actions: list[dict]) -> 
         "message": body,
         "data": {
             "tag": tag,
+            "group": tag,
             "channel": "Automation Advisor",
             "importance": "high",
             "priority": "high",
             "sticky": True,
             "actions": actions,
+            **flatten_actions_for_fcm(actions),
         },
     }
 
@@ -75,7 +78,7 @@ async def ask_run_once(hass: HomeAssistant, suggestion: dict) -> None:
             f"**{suggestion.get('title')}**\n\n"
             "실행/기각 버튼은 **Companion 앱 푸시 알림**에 있습니다. "
             "HA 웹 알림에는 버튼이 없습니다.\n\n"
-            "폰 알림을 펼친 뒤 **[실행]** 을 누르세요.\n"
+            "폰에서 알림을 **아래로 펼친 뒤** [실행] [나중에] [기각]을 누르세요.\n"
             f"(ID: `{sid}`)"
         ),
         f"advisor_run_hint_{sid}",
