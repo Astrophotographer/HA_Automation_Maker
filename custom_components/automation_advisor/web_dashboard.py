@@ -7,9 +7,10 @@ buttons. This dashboard is the web equivalent of Companion push actions.
 from __future__ import annotations
 
 import logging
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-from homeassistant.core import HomeAssistant
+if TYPE_CHECKING:
+    from homeassistant.core import HomeAssistant
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -153,7 +154,7 @@ def _suggestion_card(suggestion: dict, *, stage: str) -> dict[str, Any]:
 
 
 async def ensure_web_dashboard(
-    hass: HomeAssistant,
+    hass: "HomeAssistant",
     pending: list[dict],
     previewed: list[dict] | None = None,
 ) -> bool:
