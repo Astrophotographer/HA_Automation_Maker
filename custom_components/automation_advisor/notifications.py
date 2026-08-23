@@ -41,7 +41,63 @@ async def _persistent(hass: HomeAssistant, title: str, message: str, notificatio
         "persistent_notification",
         "create",
         {"title": title, "message": message, "notification_id": notification_id},
-        blocking=False,
+        blocking=True,
+    )
+
+
+def _web_run_message(suggestion: dict) -> str:
+    sid = str(suggestion["id"])
+    return (
+        f"**{suggestion.get('title')}**\n\n"
+        f"{suggestion.get('explanation')}\n\n"
+        "지금 한 번만 실행합니다. 자동화는 아직 등록하지 않습니다.\n\n"
+        "**폰:** Companion 푸시 알림을 펼친 뒤 [실행] [나중에] [기각]\n\n"
+        "**웹(개발자 도구 → 서비스):**\n"
+        f"- 실행: `automation_advisor.run_once` → suggestion_id `{sid}`\n"
+        f"- 기각: `automation_advisor.dismiss` → suggestion_id `{sid}`"
+    )
+
+
+def _web_auto_message(suggestion: dict) -> str:
+    sid = str(suggestion["id"])
+    return (
+        f"**{suggestion.get('title')}**\n\n"
+        "방금 한 번 실행해 봤습니다. 조건이 맞을 때마다 반복할까요?\n\n"
+        "등록하면 시험 모드(꺼진 상태)로 들어갑니다.\n\n"
+        "**폰:** [자동화] [아니요]\n\n"
+        "**웹(개발자 도구 → 서비스):**\n"
+        f"- 자동화: `automation_advisor.deploy` → suggestion_id `{sid}`\n"
+        f"- 거절: `automation_advisor.dismiss` → suggestion_id `{sid}`"
+    )
+
+
+async def sync_web_inbox(hass: HomeAssistant, pending: list[dict]) -> None:
+    """One sidebar notification listing all pending suggestions for the HA web UI."""
+    if not pending:
+        await hass.services.async_call(
+            "persistent_notification",
+            "dismiss",
+            {"notification_id": "advisor_inbox"},
+            blocking=False,
+        )
+        return
+    lines = [
+        "HA 웹 **알림(왼쪽 사이드바 종 아이콘)** 에서 확인하세요. "
+        "Companion 푸시와 같은 추천입니다.\n"
+    ]
+    for suggestion in pending[:8]:
+        sid = str(suggestion["id"])
+        lines.append(
+            f"### {suggestion.get('title')}\n"
+            f"{suggestion.get('explanation')}\n\n"
+            f"- 실행: `automation_advisor.run_once` / `{sid}`\n"
+            f"- 기각: `automation_advisor.dismiss` / `{sid}`\n"
+        )
+    await _persistent(
+        hass,
+        f"Automation Advisor — 대기 {len(pending)}건",
+        "\n".join(lines),
+        "advisor_inbox",
     )
 
 
@@ -62,27 +118,8 @@ async def ask_run_once(hass: HomeAssistant, suggestion: dict) -> None:
             {"action": encode_action(KIND_DISMISS, sid), "title": "기각"},
         ],
     )
-    sent = await _fanout_mobile(hass, payload)
-    if sent == 0:
-        extra = (
-            f"\n\nCompanion 앱이 없으면 개발자 도구에서 "
-            f"`automation_advisor.run_once` → suggestion_id `{sid}`"
-        )
-        await _persistent(hass, title, body + extra, f"advisor_run_{sid}")
-        return
-
-    await _persistent(
-        hass,
-        "폰 알림 확인 — 실행 버튼",
-        (
-            f"**{suggestion.get('title')}**\n\n"
-            "실행/기각 버튼은 **Companion 앱 푸시 알림**에 있습니다. "
-            "HA 웹 알림에는 버튼이 없습니다.\n\n"
-            "폰에서 알림을 **아래로 펼친 뒤** [실행] [나중에] [기각]을 누르세요.\n"
-            f"(ID: `{sid}`)"
-        ),
-        f"advisor_run_hint_{sid}",
-    )
+    await _persistent(hass, title, _web_run_message(suggestion), f"advisor_run_{sid}")
+    await _fanout_mobile(hass, payload)
 
 
 async def ask_automate(hass: HomeAssistant, suggestion: dict) -> None:
@@ -102,20 +139,5 @@ async def ask_automate(hass: HomeAssistant, suggestion: dict) -> None:
             {"action": encode_action(KIND_DISMISS, sid), "title": "아니요"},
         ],
     )
-    sent = await _fanout_mobile(hass, payload)
-    if sent == 0:
-        extra = f"\n\n개발자 도구에서 `automation_advisor.deploy` → suggestion_id `{sid}`"
-        await _persistent(hass, title, body + extra, f"advisor_auto_{sid}")
-        return
-
-    await _persistent(
-        hass,
-        "폰 알림 확인 — 자동화 버튼",
-        (
-            f"**{suggestion.get('title')}**\n\n"
-            "버튼은 **Companion 앱 푸시 알림**에 있습니다.\n"
-            "폰에서 **[자동화]** 또는 **[아니요]** 를 누르세요.\n"
-            f"(ID: `{sid}`)"
-        ),
-        f"advisor_auto_hint_{sid}",
-    )
+    await _persistent(hass, title, _web_auto_message(suggestion), f"advisor_auto_{sid}")
+    await _fanout_mobile(hass, payload)

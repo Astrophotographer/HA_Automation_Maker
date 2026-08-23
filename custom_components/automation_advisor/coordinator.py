@@ -219,7 +219,7 @@ class AdvisorCoordinator:
         return new_count
 
     async def async_prompt_new(self) -> int:
-        from .notifications import ask_run_once
+        from .notifications import ask_run_once, sync_web_inbox
 
         prompted = 0
         for suggestion in self.pending_suggestions:
@@ -232,6 +232,22 @@ class AdvisorCoordinator:
                 break
         if prompted:
             await self._save()
+        await sync_web_inbox(self.hass, self.pending_suggestions)
+        return prompted
+
+    async def async_reprompt(self, limit: int = 3) -> int:
+        from .notifications import ask_run_once, sync_web_inbox
+
+        prompted = 0
+        for suggestion in self.pending_suggestions:
+            await ask_run_once(self.hass, suggestion)
+            suggestion["asked_run"] = True
+            prompted += 1
+            if prompted >= limit:
+                break
+        if prompted:
+            await self._save()
+        await sync_web_inbox(self.hass, self.pending_suggestions)
         return prompted
 
     async def async_run_once(self, suggestion_id: str) -> bool:

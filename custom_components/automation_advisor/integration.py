@@ -69,6 +69,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             )
             return
         await coordinator.async_prompt_new()
+        from .notifications import sync_web_inbox
+
+        await sync_web_inbox(hass, coordinator.pending_suggestions)
         pending = coordinator.pending_suggestions
         lines = "\n".join(
             f"• **{s.get('title')}** [{s.get('source')}] — {s.get('explanation')} (ID: `{s['id']}`)"
@@ -81,8 +84,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                 f"카탈로그·습관 후보 {count}개. YAML은 컴파일러가 만듭니다.\n\n"
                 f"{habit_line}\n\n"
                 f"{lines}\n\n"
-                "**실행/기각 버튼은 Companion 앱 푸시 알림에 있습니다.**\n"
-                "HA 웹 알림(이 알림)에는 버튼이 없습니다. 폰 알림을 펼쳐 **[실행]** 을 누르세요."
+                "**실행/기각:** Companion 푸시(폰) 또는 아래 웹 알림(사이드바 **종 아이콘**).\n"
+                "웹에서는 개발자 도구 → 서비스로 `run_once` / `dismiss`."
             ),
             notification_id="advisor_scan_done",
         )
@@ -155,6 +158,16 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             "advisor_habit_status",
         )
 
+    async def handle_reprompt(call: ServiceCall) -> None:
+        limit = int(call.data.get("limit", 3))
+        count = await coordinator.async_reprompt(limit=limit)
+        await _notify(
+            hass,
+            "Automation Advisor — 알림 다시 보냄",
+            f"폰 푸시 {count}건 + 웹 알림(종 아이콘)을 갱신했습니다.",
+            "advisor_reprompt_done",
+        )
+
     hass.services.async_register(DOMAIN, "scan", handle_scan)
     hass.services.async_register(
         DOMAIN,
@@ -194,6 +207,12 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     hass.services.async_register(DOMAIN, "kill_switch", handle_kill)
     hass.services.async_register(DOMAIN, "clear_habit_data", handle_clear_habit)
     hass.services.async_register(DOMAIN, "habit_status", handle_habit_status)
+    hass.services.async_register(
+        DOMAIN,
+        "reprompt",
+        handle_reprompt,
+        schema=vol.Schema({vol.Optional("limit", default=3): vol.All(int, vol.Range(min=0, max=8))}),
+    )
     entry.async_on_unload(
         hass.bus.async_listen("mobile_app_notification_action", handle_mobile_action)
     )
@@ -220,6 +239,7 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             "kill_switch",
             "clear_habit_data",
             "habit_status",
+            "reprompt",
         ):
             if hass.services.has_service(DOMAIN, service):
                 hass.services.async_remove(DOMAIN, service)
