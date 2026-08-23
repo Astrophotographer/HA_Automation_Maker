@@ -71,7 +71,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         await coordinator.async_prompt_new()
         from .notifications import sync_web_inbox
 
-        await sync_web_inbox(hass, coordinator.pending_suggestions)
+        await sync_web_inbox(
+            hass, coordinator.pending_suggestions, coordinator.previewed_suggestions
+        )
         pending = coordinator.pending_suggestions
         lines = "\n".join(
             f"• **{s.get('title')}** [{s.get('source')}] — {s.get('explanation')} (ID: `{s['id']}`)"

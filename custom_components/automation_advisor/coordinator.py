@@ -232,7 +232,9 @@ class AdvisorCoordinator:
                 break
         if prompted:
             await self._save()
-        await sync_web_inbox(self.hass, self.pending_suggestions)
+        await sync_web_inbox(
+            self.hass, self.pending_suggestions, self.previewed_suggestions
+        )
         return prompted
 
     async def async_reprompt(self, limit: int = 3) -> int:
@@ -247,7 +249,9 @@ class AdvisorCoordinator:
                 break
         if prompted:
             await self._save()
-        await sync_web_inbox(self.hass, self.pending_suggestions)
+        await sync_web_inbox(
+            self.hass, self.pending_suggestions, self.previewed_suggestions
+        )
         return prompted
 
     async def async_run_once(self, suggestion_id: str) -> bool:
