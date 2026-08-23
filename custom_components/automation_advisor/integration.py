@@ -81,7 +81,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                 f"카탈로그·습관 후보 {count}개. YAML은 컴파일러가 만듭니다.\n\n"
                 f"{habit_line}\n\n"
                 f"{lines}\n\n"
-                "Companion: **실행하시겠습니까?** → 그다음 **자동화하시겠습니까?**"
+                "**실행/기각 버튼은 Companion 앱 푸시 알림에 있습니다.**\n"
+                "HA 웹 알림(이 알림)에는 버튼이 없습니다. 폰 알림을 펼쳐 **[실행]** 을 누르세요."
             ),
             notification_id="advisor_scan_done",
         )

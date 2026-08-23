@@ -12,6 +12,7 @@ from homeassistant.core import HomeAssistant
 
 from .compiler import action_to_service_call
 from .community import load_community_rates
+from .config_setup import ensure_configuration_include
 from .const import (
     AUTOMATIONS_FILENAME,
     CONF_COMMUNITY_STUB,
@@ -79,6 +80,22 @@ class AdvisorCoordinator:
     async def async_load(self) -> None:
         if not self._automations_file.exists():
             await self._rewrite_automations_file()
+        if await ensure_configuration_include(self.hass):
+            await self.hass.services.async_call(
+                "persistent_notification",
+                "create",
+                {
+                    "title": "Automation Advisor — 설정 한 줄 추가됨",
+                    "message": (
+                        "`configuration.yaml`에 "
+                        "`automation advisor: !include automation_advisor.yaml` "
+                        "를 넣었습니다.\n\n"
+                        "**Home Assistant를 한 번 재시작**하면 배포된 자동화가 로드됩니다."
+                    ),
+                    "notification_id": "advisor_config_include",
+                },
+                blocking=False,
+            )
         try:
             text = await self.hass.async_add_executor_job(
                 self._suggestions_file.read_text, "utf-8"
