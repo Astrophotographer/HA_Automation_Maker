@@ -1,0 +1,38 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Automation Advisor 설정",
+        "description": "v1은 장비×카탈로그로 즉시 추천합니다. v2는 내 수동 조작만 로컬에 모아 습관을 학습합니다(다른 집 로그 없음). LLM은 검증된 습관 설명만 하며 YAML은 쓰지 않습니다. Spark vLLM이면 Base URL에 http://<spark>:8000/v1 을 넣으세요.",
+        "data": {
+          "trial_mode": "시험 모드로 등록 (권장 — 자동화는 꺼진 채로 들어갑니다)",
+          "habit_learning": "내 수동 조작으로 습관 학습 (로컬 SQLite)",
+          "min_observe_days": "습관 추천 전 최소 관찰 일수",
+          "community_stub": "카탈로그에 비슷한 환경 수락률 스텁 표시",
+          "llm_base_url": "LLM Base URL (예: http://172.30.1.x:8000/v1). 비우면 LLM 끔",
+          "llm_model": "LLM 모델 id (/v1/models 에 나오는 이름)",
+          "llm_api_key": "선택: API 키 (vLLM은 보통 비움. OpenAI 클라우드만 필요)"
+        }
+      }
+    },
+    "abort": {
+      "single_instance_allowed": "Automation Advisor는 한 인스턴스만 사용할 수 있습니다."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Automation Advisor 옵션",
+        "data": {
+          "trial_mode": "시험 모드로 등록 (자동화는 꺼진 채로 들어갑니다)",
+          "habit_learning": "내 수동 조작으로 습관 학습 (로컬 SQLite)",
+          "min_observe_days": "습관 추천 전 최소 관찰 일수",
+          "community_stub": "카탈로그에 비슷한 환경 수락률 스텁 표시",
+          "llm_base_url": "LLM Base URL (예: http://172.30.1.x:8000/v1)",
+          "llm_model": "LLM 모델 id",
+          "llm_api_key": "선택: API 키 (vLLM은 보통 비움)"
+        }
+      }
+    }
+  }
+}

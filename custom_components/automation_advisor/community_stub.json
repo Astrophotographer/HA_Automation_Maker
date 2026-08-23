@@ -1,0 +1,36 @@
+{
+  "updated": "2026-08-23",
+  "note": "Local stub rates for demos. Not live multi-home aggregation.",
+  "recipes": [
+    {
+      "id": "occupancy_light",
+      "homes_with_need": 1247,
+      "accepted": 0.68
+    },
+    {
+      "id": "occupancy_light_off",
+      "homes_with_need": 980,
+      "accepted": 0.54
+    },
+    {
+      "id": "humidity_fan",
+      "homes_with_need": 412,
+      "accepted": 0.61
+    },
+    {
+      "id": "leak_notify",
+      "homes_with_need": 833,
+      "accepted": 0.77
+    },
+    {
+      "id": "door_open_notify",
+      "homes_with_need": 701,
+      "accepted": 0.49
+    },
+    {
+      "id": "sunset_lights",
+      "homes_with_need": 1502,
+      "accepted": 0.72
+    }
+  ]
+}

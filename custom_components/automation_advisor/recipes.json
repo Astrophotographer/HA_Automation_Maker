@@ -1,0 +1,87 @@
+{
+  "updated": "2026-08-17",
+  "recipes": [
+    {
+      "id": "occupancy_light",
+      "title": "감지되면 같은 방 조명 켜기",
+      "explanation": "{area}에 움직임/재실 센서와 조명이 있습니다. 이 조합에서는 흔히 감지되면 조명을 켭니다.",
+      "need": ["binary_sensor.motion|occupancy", "light"],
+      "same_area": true,
+      "compile": {
+        "trigger_index": 0,
+        "trigger": { "platform": "state", "to": "on" },
+        "action_index": 1,
+        "action": "light.turn_on"
+      }
+    },
+    {
+      "id": "occupancy_light_off",
+      "title": "움직임이 없으면 같은 방 조명 끄기",
+      "explanation": "{area}에서 움직임이 일정 시간 없으면 조명을 끄는 자동화가 흔합니다.",
+      "need": ["binary_sensor.motion|occupancy", "light"],
+      "same_area": true,
+      "compile": {
+        "trigger_index": 0,
+        "trigger": { "platform": "state", "to": "off", "for": { "minutes": 10 } },
+        "action_index": 1,
+        "action": "light.turn_off"
+      }
+    },
+    {
+      "id": "humidity_fan",
+      "title": "습하면 같은 방 환풍기 켜기",
+      "explanation": "{area}에 습도 센서와 팬이 있습니다. 습도가 높을 때 환기를 켜는 조합이 흔합니다.",
+      "need": ["sensor.humidity", "fan"],
+      "same_area": true,
+      "compile": {
+        "trigger_index": 0,
+        "trigger": { "platform": "numeric_state", "above": 70 },
+        "action_index": 1,
+        "action": "fan.turn_on"
+      }
+    },
+    {
+      "id": "leak_notify",
+      "title": "누수 감지 시 알림",
+      "explanation": "누수 센서가 있습니다. 감지되면 알림을 보내는 자동화가 흔합니다.",
+      "need": ["binary_sensor.moisture"],
+      "same_area": false,
+      "compile": {
+        "trigger_index": 0,
+        "trigger": { "platform": "state", "to": "on" },
+        "action_index": null,
+        "action": "persistent_notification.create",
+        "notify_title": "누수 감지",
+        "notify_message": "{entity}에서 누수가 감지되었습니다."
+      }
+    },
+    {
+      "id": "door_open_notify",
+      "title": "문이 오래 열려 있으면 알림",
+      "explanation": "문/창 센서가 있습니다. 오래 열려 있으면 알림을 주는 자동화가 흔합니다. 도어록을 조작하지는 않습니다.",
+      "need": ["binary_sensor.door|window|garage_door"],
+      "same_area": false,
+      "compile": {
+        "trigger_index": 0,
+        "trigger": { "platform": "state", "to": "on", "for": { "minutes": 5 } },
+        "action_index": null,
+        "action": "persistent_notification.create",
+        "notify_title": "문이 열려 있습니다",
+        "notify_message": "{entity}가 5분 이상 열려 있습니다."
+      }
+    },
+    {
+      "id": "sunset_lights",
+      "title": "일몰이면 조명 켜기",
+      "explanation": "조명이 있습니다. 일몰에 켜는 자동화는 비슷한 환경에서 흔히 씁니다.",
+      "need": ["sun", "light"],
+      "same_area": false,
+      "compile": {
+        "trigger_index": 0,
+        "trigger": { "platform": "sun", "event": "sunset" },
+        "action_index": 1,
+        "action": "light.turn_on"
+      }
+    }
+  ]
+}

@@ -1,0 +1,102 @@
+scan:
+  name: Scan for suggestions
+  description: >
+    Match your current devices against the builtin recipe catalog.
+    Then asks 실행하시겠습니까? in the Companion app (one-shot), and only after
+    that 자동화하시겠습니까?
+  fields: {}
+
+run_once:
+  name: Run suggestion once
+  description: >
+    Execute the compiled action once now. Does not register an automation.
+    After it runs, asks whether to automate.
+  fields:
+    suggestion_id:
+      name: Suggestion ID
+      description: The 8-character ID of the suggestion to run once.
+      required: true
+      example: "a1b2c3d4"
+      selector:
+        text:
+
+deploy:
+  name: Deploy suggestion
+  description: >
+    Register a pending suggestion into automation_advisor.yaml as a trial
+    automation (off by default). Home Assistant executes it only after you enable it.
+  fields:
+    suggestion_id:
+      name: Suggestion ID
+      description: The 8-character ID of the suggestion to deploy.
+      required: true
+      example: "a1b2c3d4"
+      selector:
+        text:
+
+dismiss:
+  name: Dismiss suggestion
+  description: >
+    Hide this recipe and device combination for 3 days.
+    After the cooldown, the next scan may suggest it again.
+  fields:
+    suggestion_id:
+      name: Suggestion ID
+      description: The 8-character ID of the suggestion to dismiss.
+      required: true
+      example: "a1b2c3d4"
+      selector:
+        text:
+
+feedback:
+  name: Rate suggestion
+  description: Rate a suggestion as good or bad.
+  fields:
+    suggestion_id:
+      name: Suggestion ID
+      description: The 8-character ID of the suggestion to rate.
+      required: true
+      example: "a1b2c3d4"
+      selector:
+        text:
+    rating:
+      name: Rating
+      description: Your rating for this suggestion.
+      required: true
+      example: "good"
+      selector:
+        select:
+          options:
+            - "good"
+            - "bad"
+
+delete:
+  name: Delete suggestion
+  description: >
+    Permanently delete a suggestion. If it was deployed, removes the
+    automation from automation_advisor.yaml and reloads automations.
+  fields:
+    suggestion_id:
+      name: Suggestion ID
+      description: The 8-character ID of the suggestion to delete.
+      required: true
+      example: "a1b2c3d4"
+      selector:
+        text:
+
+kill_switch:
+  name: Kill switch
+  description: >
+    Remove every automation this integration registered and reload Home Assistant
+    automations. Use this if a trial automation misbehaves.
+  fields: {}
+
+habit_status:
+  name: Habit learning status
+  description: Show how many local learnable events and observation days are stored.
+  fields: {}
+
+clear_habit_data:
+  name: Clear habit data
+  description: Delete the local SQLite habit event log. Observation starts over.
+  fields: {}

@@ -1,0 +1,38 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Automation Advisor setup",
+        "description": "v1 matches devices to a builtin catalog. v2 also learns from your manual actions locally (not other homes). Optional LLM only explains verified habits — it never writes YAML. For Spark vLLM use Base URL like http://<spark>:8000/v1.",
+        "data": {
+          "trial_mode": "Register in trial mode (recommended — automations start disabled)",
+          "habit_learning": "Learn habits from my manual actions (local SQLite)",
+          "min_observe_days": "Minimum observation days before habit suggestions",
+          "community_stub": "Show stub similar-home acceptance rates on catalog tips",
+          "llm_base_url": "LLM Base URL (e.g. http://172.30.1.x:8000/v1). Empty disables LLM",
+          "llm_model": "LLM model id (from /v1/models)",
+          "llm_api_key": "Optional API key (usually empty for vLLM; required for OpenAI cloud)"
+        }
+      }
+    },
+    "abort": {
+      "single_instance_allowed": "Only one instance of Automation Advisor is allowed."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Automation Advisor options",
+        "data": {
+          "trial_mode": "Register in trial mode (automations start disabled)",
+          "habit_learning": "Learn habits from my manual actions (local SQLite)",
+          "min_observe_days": "Minimum observation days before habit suggestions",
+          "community_stub": "Show stub similar-home acceptance rates on catalog tips",
+          "llm_base_url": "LLM Base URL (e.g. http://172.30.1.x:8000/v1)",
+          "llm_model": "LLM model id",
+          "llm_api_key": "Optional API key (usually empty for vLLM)"
+        }
+      }
+    }
+  }
+}

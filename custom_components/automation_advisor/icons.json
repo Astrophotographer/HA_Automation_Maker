@@ -1,0 +1,13 @@
+{
+  "services": {
+    "scan": { "service": "mdi:magnify-scan" },
+    "run_once": { "service": "mdi:play-circle-outline" },
+    "deploy": { "service": "mdi:upload" },
+    "dismiss": { "service": "mdi:close-circle-outline" },
+    "feedback": { "service": "mdi:thumbs-up-down" },
+    "delete": { "service": "mdi:delete-outline" },
+    "kill_switch": { "service": "mdi:power" },
+    "habit_status": { "service": "mdi:chart-timeline-variant" },
+    "clear_habit_data": { "service": "mdi:database-remove-outline" }
+  }
+}
