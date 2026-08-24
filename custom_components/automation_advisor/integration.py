@@ -7,9 +7,10 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, ServiceCall
 import homeassistant.helpers.config_validation as cv
 
-from .actions import KIND_DEPLOY, KIND_DISMISS, KIND_RUN, parse_action
+from .actions import KIND_DEPLOY, KIND_DISMISS, KIND_LATER, KIND_RUN, parse_action
 from .const import DOMAIN
 from .coordinator import AdvisorCoordinator
+from .notifications import clear_suggestion_card, show_busy_card
 
 PLATFORMS = ["sensor"]
 
@@ -110,15 +111,30 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         if not parsed:
             return
         kind, suggestion_id = parsed
+        suggestion = coordinator._get_suggestion(suggestion_id)
+        # Same Companion card: drop old buttons immediately, then swap or close.
+        if kind in {KIND_LATER, KIND_DISMISS}:
+            await clear_suggestion_card(hass, suggestion_id)
+        elif suggestion is not None:
+            await show_busy_card(
+                hass,
+                suggestion,
+                "처리 중… 같은 알림에서 다음 선택이 이어집니다.",
+            )
         if kind == KIND_RUN:
             await coordinator.async_run_once(suggestion_id)
         elif kind == KIND_DEPLOY:
             await coordinator.async_deploy(suggestion_id)
+        elif kind == KIND_LATER:
+            await coordinator.async_later(suggestion_id)
         elif kind == KIND_DISMISS:
             await coordinator.async_dismiss(suggestion_id)
 
     async def handle_deploy(call: ServiceCall) -> None:
         await coordinator.async_deploy(call.data["suggestion_id"])
+
+    async def handle_later(call: ServiceCall) -> None:
+        await coordinator.async_later(call.data["suggestion_id"])
 
     async def handle_dismiss(call: ServiceCall) -> None:
         await coordinator.async_dismiss(call.data["suggestion_id"])
@@ -186,6 +202,12 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     )
     hass.services.async_register(
         DOMAIN,
+        "later",
+        handle_later,
+        schema=vol.Schema({vol.Required("suggestion_id"): cv.string}),
+    )
+    hass.services.async_register(
+        DOMAIN,
         "dismiss",
         handle_dismiss,
         schema=vol.Schema({vol.Required("suggestion_id"): cv.string}),
@@ -236,6 +258,7 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             "scan",
             "run_once",
             "deploy",
+            "later",
             "dismiss",
             "feedback",
             "delete",

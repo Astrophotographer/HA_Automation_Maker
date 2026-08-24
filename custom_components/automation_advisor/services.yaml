@@ -34,6 +34,20 @@ deploy:
       selector:
         text:
 
+later:
+  name: Later
+  description: >
+    Hide this suggestion's notification card for now. The suggestion stays
+    pending and can be sent again with reprompt.
+  fields:
+    suggestion_id:
+      name: Suggestion ID
+      description: The 8-character ID of the suggestion to snooze.
+      required: true
+      example: "a1b2c3d4"
+      selector:
+        text:
+
 dismiss:
   name: Dismiss suggestion
   description: >

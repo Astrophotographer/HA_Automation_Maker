@@ -1,7 +1,7 @@
 """Constants for Automation Advisor."""
 
 DOMAIN = "automation_advisor"
-VERSION = "0.2.11"
+VERSION = "0.2.15"
 
 CONF_TRIAL_MODE = "trial_mode"
 CONF_HABIT_LEARNING = "habit_learning"
@@ -13,7 +13,7 @@ CONF_COMMUNITY_STUB = "community_stub"
 
 DEFAULT_TRIAL_MODE = True
 DEFAULT_HABIT_LEARNING = True
-DEFAULT_MIN_OBSERVE_DAYS = 7
+DEFAULT_MIN_OBSERVE_DAYS = 3
 DEFAULT_COMMUNITY_STUB = True
 # OpenAI-compatible endpoint (vLLM on Spark). Empty = LLM off unless api_key set (OpenAI cloud).
 DEFAULT_LLM_BASE_URL = ""

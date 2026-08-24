@@ -102,43 +102,62 @@ def _suggestion_card(suggestion: dict, *, stage: str) -> dict[str, Any]:
     )
     if stage == "deploy":
         heading = "자동화하시겠습니까?"
-        primary = {
-            "type": "button",
-            "name": "자동화",
-            "icon": "mdi:robot",
-            "tap_action": {
-                "action": "perform-action",
-                "perform_action": "automation_advisor.deploy",
-                "data": {"suggestion_id": sid},
+        buttons = [
+            {
+                "type": "button",
+                "name": "자동화",
+                "icon": "mdi:robot",
+                "tap_action": {
+                    "action": "perform-action",
+                    "perform_action": "automation_advisor.deploy",
+                    "data": {"suggestion_id": sid},
+                },
             },
-        }
-        secondary_name = "아니요"
-        secondary_action = "automation_advisor.dismiss"
+            {
+                "type": "button",
+                "name": "아니요",
+                "icon": "mdi:close",
+                "tap_action": {
+                    "action": "perform-action",
+                    "perform_action": "automation_advisor.dismiss",
+                    "data": {"suggestion_id": sid},
+                },
+            },
+        ]
     else:
         heading = "실행하시겠습니까?"
-        primary = {
-            "type": "button",
-            "name": "실행",
-            "icon": "mdi:play",
-            "tap_action": {
-                "action": "perform-action",
-                "perform_action": "automation_advisor.run_once",
-                "data": {"suggestion_id": sid},
+        buttons = [
+            {
+                "type": "button",
+                "name": "실행",
+                "icon": "mdi:play",
+                "tap_action": {
+                    "action": "perform-action",
+                    "perform_action": "automation_advisor.run_once",
+                    "data": {"suggestion_id": sid},
+                },
             },
-        }
-        secondary_name = "기각"
-        secondary_action = "automation_advisor.dismiss"
-
-    secondary = {
-        "type": "button",
-        "name": secondary_name,
-        "icon": "mdi:close",
-        "tap_action": {
-            "action": "perform-action",
-            "perform_action": secondary_action,
-            "data": {"suggestion_id": sid},
-        },
-    }
+            {
+                "type": "button",
+                "name": "나중에",
+                "icon": "mdi:clock-outline",
+                "tap_action": {
+                    "action": "perform-action",
+                    "perform_action": "automation_advisor.later",
+                    "data": {"suggestion_id": sid},
+                },
+            },
+            {
+                "type": "button",
+                "name": "기각",
+                "icon": "mdi:close",
+                "tap_action": {
+                    "action": "perform-action",
+                    "perform_action": "automation_advisor.dismiss",
+                    "data": {"suggestion_id": sid},
+                },
+            },
+        ]
 
     return {
         "type": "vertical-stack",
@@ -152,7 +171,7 @@ def _suggestion_card(suggestion: dict, *, stage: str) -> dict[str, Any]:
                     f"`{sid}`"
                 ),
             },
-            {"type": "horizontal-stack", "cards": [primary, secondary]},
+            {"type": "horizontal-stack", "cards": buttons},
         ],
     }
 

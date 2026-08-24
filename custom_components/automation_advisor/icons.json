@@ -3,6 +3,7 @@
     "scan": { "service": "mdi:magnify-scan" },
     "run_once": { "service": "mdi:play-circle-outline" },
     "deploy": { "service": "mdi:upload" },
+    "later": { "service": "mdi:clock-outline" },
     "dismiss": { "service": "mdi:close-circle-outline" },
     "feedback": { "service": "mdi:thumbs-up-down" },
     "delete": { "service": "mdi:delete-outline" },

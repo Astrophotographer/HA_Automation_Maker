@@ -32,7 +32,12 @@ from .const import (
 )
 from .event_store import EventStore
 from .inventory import existing_automation_entity_sets, snapshot_inventory
-from .notifications import ask_automate
+from .notifications import (
+    ask_automate,
+    clear_suggestion_card,
+    confirm_deployed,
+    sync_web_inbox,
+)
 from .observe import Observer
 from .pattern import discover_patterns
 from .recorder_backfill import backfill_from_recorder
@@ -298,7 +303,7 @@ class AdvisorCoordinator:
         self._refresh_behaviors()
         prompted = 0
         for suggestion in self.pending_suggestions:
-            if suggestion.get("asked_run"):
+            if suggestion.get("asked_run") or suggestion.get("snoozed"):
                 continue
             await ask_run_once(self.hass, suggestion)
             suggestion["asked_run"] = True
@@ -318,6 +323,7 @@ class AdvisorCoordinator:
         self._refresh_behaviors()
         prompted = 0
         for suggestion in self.pending_suggestions:
+            suggestion["snoozed"] = False
             await ask_run_once(self.hass, suggestion)
             suggestion["asked_run"] = True
             prompted += 1
@@ -354,6 +360,9 @@ class AdvisorCoordinator:
         await self._save()
         self._notify()
         await ask_automate(self.hass, suggestion)
+        await sync_web_inbox(
+            self.hass, self.pending_suggestions, self.previewed_suggestions
+        )
         return True
 
     async def async_deploy(self, suggestion_id: str) -> None:
@@ -371,19 +380,9 @@ class AdvisorCoordinator:
             if suggestion.get("trial") or auto.get("initial_state") is False
             else "조건이 맞으면 Home Assistant가 실행합니다."
         )
-        await self.hass.services.async_call(
-            "persistent_notification",
-            "create",
-            {
-                "title": f"Advisor: '{auto.get('alias', suggestion.get('title'))}' 등록",
-                "message": (
-                    f"{suggestion.get('explanation')}\n\n{trial_note}\n\n"
-                    f"`configuration.yaml`에 "
-                    f"`automation advisor: !include {self._automations_file.name}` "
-                    f"가 있어야 합니다."
-                ),
-                "notification_id": f"advisor_{suggestion_id}_deployed",
-            },
+        await confirm_deployed(self.hass, suggestion, trial_note)
+        await sync_web_inbox(
+            self.hass, self.pending_suggestions, self.previewed_suggestions
         )
         self._notify()
 
@@ -418,7 +417,22 @@ class AdvisorCoordinator:
             suggestion["status"] = "dismissed"
             suggestion["dismissed_at"] = datetime.now(timezone.utc).isoformat()
             await self._save()
+            await clear_suggestion_card(self.hass, suggestion_id)
+            await sync_web_inbox(
+                self.hass, self.pending_suggestions, self.previewed_suggestions
+            )
             self._notify()
+
+    async def async_later(self, suggestion_id: str) -> None:
+        suggestion = self._get_suggestion(suggestion_id)
+        if not suggestion:
+            return
+        suggestion["snoozed"] = True
+        await self._save()
+        await clear_suggestion_card(self.hass, suggestion_id)
+        await sync_web_inbox(
+            self.hass, self.pending_suggestions, self.previewed_suggestions
+        )
 
     async def async_feedback(self, suggestion_id: str, rating: str) -> None:
         suggestion = self._get_suggestion(suggestion_id)
