@@ -18,8 +18,12 @@ _ACTION_LABELS = {
 
 
 def _label(entity_id: str, names: dict[str, str] | None) -> str:
-    name = (names or {}).get(entity_id) or entity_id.split(".", 1)[-1].replace("_", " ")
-    return f"{name} (`{entity_id}`)"
+    """Prefer UI/Korean friendly name; avoid romanized entity_id slug as the title."""
+    name = (names or {}).get(entity_id)
+    if not name or name == entity_id:
+        # Last resort: keep entity_id readable, but do not pretend it's a Korean label.
+        return f"`{entity_id}`"
+    return f"**{name}** (`{entity_id}`)"
 
 
 def _join_labels(entity_ids: list[str], names: dict[str, str] | None) -> str:
@@ -38,6 +42,12 @@ def _format_duration(for_spec: dict | None) -> str:
     if "hours" in for_spec:
         return f"{for_spec['hours']}시간"
     return str(for_spec)
+
+
+_SUN_EVENTS = {
+    "sunset": "일몰",
+    "sunrise": "일출",
+}
 
 
 def describe_match_behavior(
@@ -70,8 +80,8 @@ def describe_match_behavior(
         thresh = " · ".join(parts) or "임계값"
         when = f"{triggers}이(가) {thresh}이면"
     elif platform == "sun":
-        event = trigger.get("event", "sunset")
-        when = f"**{event}**(일몰/일출)이면"
+        event = str(trigger.get("event", "sunset"))
+        when = f"**{_SUN_EVENTS.get(event, event)}**이면"
     else:
         when = f"트리거({platform}): {triggers}"
 
@@ -112,7 +122,8 @@ def describe_automation_behavior(
         else:
             when = f"{trigger_labels} 상태가 바뀌면"
     elif platform == "sun":
-        when = f"**{trig.get('event', 'sunset')}**이면"
+        event = str(trig.get("event", "sunset"))
+        when = f"**{_SUN_EVENTS.get(event, event)}**이면"
     elif platform == "numeric_state":
         when = f"{trigger_labels} numeric_state"
     else:

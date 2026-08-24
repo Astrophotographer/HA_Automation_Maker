@@ -60,6 +60,7 @@ class BehaviorTests(unittest.TestCase):
         self.assertIn("off", text)
         self.assertIn("거실 램프", text)
         self.assertIn("끄기", text)
+        self.assertNotIn("living_motion", text.split("(")[0])
 
     def test_recommend_includes_behavior_field(self) -> None:
         inventory = [

@@ -259,13 +259,12 @@ class AdvisorCoordinator:
             derived = describe_automation_behavior(
                 suggestion.get("automation") or {}, merged
             )
-            if not derived and suggestion.get("behavior"):
-                derived = str(suggestion["behavior"])
-            if not derived:
-                continue
-            # Prefer already-built behavior from recommend; only fill if missing.
-            if not suggestion.get("behavior"):
+            # Always rebuild from current Korean/UI names so stale romanized
+            # labels from older versions get replaced on scan/reprompt.
+            if derived:
                 suggestion["behavior"] = derived
+            elif not suggestion.get("behavior"):
+                continue
             behavior = str(suggestion["behavior"])
             old = str(suggestion.get("explanation") or "")
             stub = ""
@@ -274,6 +273,12 @@ class AdvisorCoordinator:
             if idx >= 0:
                 stub = "\n\n" + old[idx:].strip()
             suggestion["explanation"] = behavior + stub
+            if merged:
+                suggestion["entity_names"] = {
+                    eid: merged[eid]
+                    for eid in (suggestion.get("entities") or [])
+                    if eid in merged
+                }
 
     async def async_prompt_new(self) -> int:
         from .notifications import ask_run_once, sync_web_inbox
