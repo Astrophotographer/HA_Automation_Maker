@@ -245,7 +245,7 @@ class AdvisorCoordinator:
 
     def _refresh_behaviors(self, inventory: list | None = None) -> None:
         """Fill concrete condition/action text on pending/previewed suggestions."""
-        from .behavior import describe_automation_behavior, describe_match_behavior
+        from .behavior import describe_automation_behavior
         from .inventory import snapshot_inventory
 
         if inventory is None:
