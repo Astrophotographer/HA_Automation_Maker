@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import logging
+
 from homeassistant.core import HomeAssistant, State
 from homeassistant.helpers import (
     area_registry as ar,
@@ -11,58 +13,92 @@ from homeassistant.helpers import (
 
 from .models import EntitySnap
 
+_LOGGER = logging.getLogger(__name__)
 
-def _display_name(
+
+def build_entity_names(hass: HomeAssistant) -> dict[str, str]:
+    """Map entity_id → Korean/UI label (same idea as the HA frontend)."""
+    ent_reg = er.async_get(hass)
+    dev_reg = dr.async_get(hass)
+    names: dict[str, str] = {}
+
+    for entity_id, entry in ent_reg.entities.items():
+        device = None
+        if entry.device_id:
+            device = dev_reg.devices.get(entry.device_id)
+        state = hass.states.get(entity_id)
+        names[entity_id] = _resolve_name(hass, entity_id, entry, device, state)
+
+    # Also cover any state that might not be in the registry yet
+    for state in hass.states.async_all():
+        if state.entity_id not in names:
+            names[state.entity_id] = _resolve_name(
+                hass, state.entity_id, None, None, state
+            )
+    return names
+
+
+def _resolve_name(
     hass: HomeAssistant,
-    state: State,
+    entity_id: str,
     entry: er.RegistryEntry | None,
     device: dr.DeviceEntry | None,
+    state: State | None,
 ) -> str:
-    """Resolve the same Korean/UI name users see in Home Assistant."""
-    # 1) Explicit entity rename in the UI / registry
     if entry is not None and entry.name and str(entry.name).strip():
         return str(entry.name).strip()
 
-    # 2) has_entity_name style: "기기이름 + 엔티티이름" (matches HA UI)
-    if entry is not None and getattr(entry, "has_entity_name", False):
-        device_name = None
-        if device is not None:
-            device_name = device.name_by_user or device.name
-        entity_part = entry.original_name
-        if device_name and entity_part:
-            return f"{device_name} {entity_part}".strip()
-        if device_name:
-            return str(device_name).strip()
-        if entity_part:
-            return str(entity_part).strip()
-
-    # 3) State attribute (present on REST/API; sometimes missing in-core)
-    attr_name = state.attributes.get("friendly_name")
-    if isinstance(attr_name, str) and attr_name.strip() and attr_name != state.entity_id:
-        return attr_name.strip()
-
-    # 4) Official registry helper (HA 2024.8+)
-    if entry is not None:
-        try:
-            full = er.async_get_full_entity_name(hass, entry)
-            if isinstance(full, str) and full.strip() and full != state.entity_id:
-                return full.strip()
-        except Exception:  # noqa: BLE001
-            pass
-
-    # 5) Device name alone
+    device_name = None
     if device is not None:
         device_name = device.name_by_user or device.name
         if device_name:
-            return str(device_name).strip()
+            device_name = str(device_name).strip()
 
-    return state.entity_id
+    original = None
+    if entry is not None and entry.original_name:
+        original = str(entry.original_name).strip()
+
+    # Compose like HA UI for has_entity_name devices
+    if entry is not None and getattr(entry, "has_entity_name", False):
+        if device_name and original:
+            return f"{device_name} {original}"
+        if device_name:
+            return device_name
+        if original:
+            return original
+
+    if device_name and original:
+        return f"{device_name} {original}"
+    if device_name:
+        return device_name
+    if original:
+        return original
+
+    if state is not None:
+        attr_name = state.attributes.get("friendly_name")
+        if (
+            isinstance(attr_name, str)
+            and attr_name.strip()
+            and attr_name != entity_id
+        ):
+            return attr_name.strip()
+
+    if entry is not None:
+        try:
+            full = er.async_get_full_entity_name(hass, entry)
+            if isinstance(full, str) and full.strip() and full != entity_id:
+                return full.strip()
+        except Exception:  # noqa: BLE001
+            _LOGGER.debug("async_get_full_entity_name failed for %s", entity_id)
+
+    return entity_id
 
 
 def snapshot_inventory(hass: HomeAssistant) -> list[EntitySnap]:
     ent_reg = er.async_get(hass)
     area_reg = ar.async_get(hass)
     dev_reg = dr.async_get(hass)
+    names = build_entity_names(hass)
     snaps: list[EntitySnap] = []
 
     for state in hass.states.async_all():
@@ -72,7 +108,7 @@ def snapshot_inventory(hass: HomeAssistant) -> list[EntitySnap]:
         if entry:
             area_id = entry.area_id
             if entry.device_id:
-                device = dev_reg.async_get(entry.device_id)
+                device = dev_reg.devices.get(entry.device_id)
                 if not area_id and device:
                     area_id = device.area_id
         area_name = None
@@ -94,7 +130,7 @@ def snapshot_inventory(hass: HomeAssistant) -> list[EntitySnap]:
                 area_id=area_id,
                 area_name=area_name,
                 state=state.state,
-                friendly_name=_display_name(hass, state, entry, device),
+                friendly_name=names.get(state.entity_id) or state.entity_id,
                 attributes=dict(state.attributes),
             )
         )
