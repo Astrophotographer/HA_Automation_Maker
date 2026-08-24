@@ -42,7 +42,9 @@ def recommend(
     recipes = recipes if recipes is not None else load_recipes()
     if community_rates is None:
         community_rates = {}
-    names = {e.entity_id: e.friendly_name for e in inventory}
+    names = {
+        e.entity_id: (e.display_name or e.friendly_name) for e in inventory
+    }
     out: list[dict] = []
     seen: set[tuple] = set()
 

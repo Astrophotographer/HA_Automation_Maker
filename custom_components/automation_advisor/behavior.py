@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from .labels import display_name_in_area, short_area_name
 from .models import RecipeMatch
 
 _ACTION_LABELS = {
@@ -17,19 +18,32 @@ _ACTION_LABELS = {
 }
 
 
-def _label(entity_id: str, names: dict[str, str] | None) -> str:
-    """Prefer UI/Korean friendly name; avoid romanized entity_id slug as the title."""
+def _label(
+    entity_id: str,
+    names: dict[str, str] | None,
+    *,
+    context_area: str | None = None,
+) -> str:
+    """Prefer concise area · device labels; never show romanized entity_id slugs."""
     name = (names or {}).get(entity_id)
     if not name or name == entity_id:
-        # Last resort: keep entity_id readable, but do not pretend it's a Korean label.
-        return f"`{entity_id}`"
-    return f"**{name}** (`{entity_id}`)"
+        return "알 수 없는 장치"
+    if context_area:
+        name = display_name_in_area(name, context_area)
+    return f"**{name}**"
 
 
-def _join_labels(entity_ids: list[str], names: dict[str, str] | None) -> str:
+def _join_labels(
+    entity_ids: list[str],
+    names: dict[str, str] | None,
+    *,
+    context_area: str | None = None,
+) -> str:
     if not entity_ids:
         return "(없음)"
-    return ", ".join(_label(eid, names) for eid in entity_ids)
+    return ", ".join(
+        _label(eid, names, context_area=context_area) for eid in entity_ids
+    )
 
 
 def _format_duration(for_spec: dict | None) -> str:
@@ -57,8 +71,9 @@ def describe_match_behavior(
     spec = match.recipe.get("compile") or {}
     trigger = dict(spec.get("trigger") or {})
     platform = trigger.get("platform", "state")
-    triggers = _join_labels(match.trigger_entity_ids, names)
-    actions = _join_labels(match.action_entity_ids, names)
+    area = match.area_name
+    triggers = _join_labels(match.trigger_entity_ids, names, context_area=area)
+    actions = _join_labels(match.action_entity_ids, names, context_area=area)
     action_name = str(spec.get("action") or "")
     action_verb = _ACTION_LABELS.get(action_name, action_name)
 
@@ -93,12 +108,16 @@ def describe_match_behavior(
     else:
         then = action_verb or action_name
 
-    area = f"（{match.area_name}）" if match.area_name else ""
-    return f"**조건{area}:** {when}\n**동작:** {then}"
+    area_label = short_area_name(match.area_name)
+    area_suffix = f"（{area_label}）" if area_label else ""
+    return f"**조건{area_suffix}:** {when}\n**동작:** {then}"
 
 
 def describe_automation_behavior(
-    automation: dict, names: dict[str, str] | None = None
+    automation: dict,
+    names: dict[str, str] | None = None,
+    *,
+    context_area: str | None = None,
 ) -> str | None:
     """Best-effort summary from a compiled automation dict (for older suggestions)."""
     triggers = automation.get("trigger") or []
@@ -110,7 +129,11 @@ def describe_automation_behavior(
     entity_ids = trig.get("entity_id") or []
     if isinstance(entity_ids, str):
         entity_ids = [entity_ids]
-    trigger_labels = _join_labels(list(entity_ids), names) if entity_ids else ""
+    trigger_labels = (
+        _join_labels(list(entity_ids), names, context_area=context_area)
+        if entity_ids
+        else ""
+    )
 
     if platform == "state":
         to_state = trig.get("to")
@@ -141,7 +164,7 @@ def describe_automation_behavior(
             title = (step.get("data") or {}).get("title") or "알림"
             then = f"알림 보내기 — 「{title}」"
         elif target:
-            then = f"{_join_labels(list(target), names)} **{verb}**"
+            then = f"{_join_labels(list(target), names, context_area=context_area)} **{verb}**"
         else:
             then = verb
 

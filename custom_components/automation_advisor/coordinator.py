@@ -254,15 +254,15 @@ class AdvisorCoordinator:
     def _refresh_behaviors(self, inventory: list | None = None) -> None:
         """Fill concrete condition/action text on pending/previewed suggestions."""
         from .behavior import describe_automation_behavior
-        from .inventory import build_entity_names, snapshot_inventory
+        from .inventory import build_entity_display_names, snapshot_inventory
 
         if inventory is None:
             inventory = snapshot_inventory(self.hass)
-        names = build_entity_names(self.hass)
-        # Prefer names already captured on inventory snaps
+        names = build_entity_display_names(self.hass)
         for entity in inventory:
-            if entity.friendly_name and entity.friendly_name != entity.entity_id:
-                names[entity.entity_id] = entity.friendly_name
+            label = entity.display_name or entity.friendly_name
+            if label and label != entity.entity_id:
+                names[entity.entity_id] = label
         for suggestion in self.suggestions:
             if suggestion.get("status") not in {"pending", "previewed"}:
                 continue
@@ -270,7 +270,9 @@ class AdvisorCoordinator:
             # Fresh registry names win over stale stored romanized labels
             merged = {**stored_names, **names}
             derived = describe_automation_behavior(
-                suggestion.get("automation") or {}, merged
+                suggestion.get("automation") or {},
+                merged,
+                context_area=suggestion.get("area_name"),
             )
             if derived:
                 suggestion["behavior"] = derived

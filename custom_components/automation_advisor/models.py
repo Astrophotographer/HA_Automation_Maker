@@ -12,6 +12,7 @@ class EntitySnap:
     area_name: str | None
     state: str
     friendly_name: str
+    display_name: str = ""
     attributes: dict = field(default_factory=dict, compare=False)
 
 

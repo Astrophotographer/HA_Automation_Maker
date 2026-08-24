@@ -13,6 +13,8 @@ from homeassistant.helpers import (
 
 from .models import EntitySnap
 
+from .labels import resolve_display_name
+
 _LOGGER = logging.getLogger(__name__)
 
 
@@ -36,6 +38,36 @@ def build_entity_names(hass: HomeAssistant) -> dict[str, str]:
                 hass, state.entity_id, None, None, state
             )
     return names
+
+
+def build_entity_display_names(hass: HomeAssistant) -> dict[str, str]:
+    """Map entity_id → concise area · device label for notifications."""
+    ent_reg = er.async_get(hass)
+    dev_reg = dr.async_get(hass)
+    area_reg = ar.async_get(hass)
+    full_names = build_entity_names(hass)
+    display: dict[str, str] = {}
+
+    for entity_id, entry in ent_reg.entities.items():
+        device = dev_reg.devices.get(entry.device_id) if entry.device_id else None
+        area_id = entry.area_id or (device.area_id if device else None)
+        area_name = None
+        if area_id:
+            area = area_reg.async_get_area(area_id)
+            if area:
+                area_name = area.name
+        display[entity_id] = resolve_display_name(
+            entity_id,
+            entry=entry,
+            device=device,
+            area_name=area_name,
+            full_name=full_names.get(entity_id),
+        )
+
+    for entity_id, full_name in full_names.items():
+        if entity_id not in display:
+            display[entity_id] = full_name if full_name != entity_id else entity_id
+    return display
 
 
 def _resolve_name(
@@ -122,6 +154,7 @@ def snapshot_inventory(hass: HomeAssistant) -> list[EntitySnap]:
         if not device_class:
             device_class = state.attributes.get("device_class")
 
+        full_name = names.get(state.entity_id) or state.entity_id
         snaps.append(
             EntitySnap(
                 entity_id=state.entity_id,
@@ -130,7 +163,14 @@ def snapshot_inventory(hass: HomeAssistant) -> list[EntitySnap]:
                 area_id=area_id,
                 area_name=area_name,
                 state=state.state,
-                friendly_name=names.get(state.entity_id) or state.entity_id,
+                friendly_name=full_name,
+                display_name=resolve_display_name(
+                    state.entity_id,
+                    entry=entry,
+                    device=device,
+                    area_name=area_name,
+                    full_name=full_name,
+                ),
                 attributes=dict(state.attributes),
             )
         )

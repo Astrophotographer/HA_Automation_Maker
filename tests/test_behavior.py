@@ -25,8 +25,10 @@ def _snap(
     area_id: str | None = "living",
     area_name: str = "거실",
     friendly_name: str | None = None,
+    display_name: str | None = None,
 ) -> EntitySnap:
     domain = entity_id.split(".", 1)[0]
+    label = display_name or friendly_name or entity_id
     return EntitySnap(
         entity_id=entity_id,
         domain=domain,
@@ -34,7 +36,8 @@ def _snap(
         area_id=area_id,
         area_name=area_name,
         state="off",
-        friendly_name=friendly_name or entity_id,
+        friendly_name=friendly_name or label,
+        display_name=label,
     )
 
 
@@ -45,27 +48,29 @@ class BehaviorTests(unittest.TestCase):
                 "binary_sensor.living_motion",
                 device_class="motion",
                 friendly_name="거실 모션",
+                display_name="모션",
             ),
-            _snap("light.living_lamp", friendly_name="거실 램프"),
+            _snap("light.living_lamp", friendly_name="거실 램프", display_name="램프"),
         ]
         match = next(
             m
             for m in match_recipes(load_recipes(), inventory)
             if m.recipe_id == "occupancy_light_off"
         )
-        names = {e.entity_id: e.friendly_name for e in inventory}
+        names = {e.entity_id: e.display_name for e in inventory}
         text = describe_match_behavior(match, names)
-        self.assertIn("거실 모션", text)
+        self.assertIn("모션", text)
         self.assertIn("10분", text)
         self.assertIn("off", text)
-        self.assertIn("거실 램프", text)
+        self.assertIn("램프", text)
         self.assertIn("끄기", text)
-        self.assertNotIn("living_motion", text.split("(")[0])
+        self.assertNotIn("living_motion", text)
+        self.assertNotIn("`", text)
 
     def test_recommend_includes_behavior_field(self) -> None:
         inventory = [
-            _snap("binary_sensor.living_motion", device_class="motion", friendly_name="모션"),
-            _snap("light.living_lamp", friendly_name="램프"),
+            _snap("binary_sensor.living_motion", device_class="motion", display_name="모션"),
+            _snap("light.living_lamp", display_name="램프"),
         ]
         suggestions = recommend(inventory, community_rates={})
         off = next(s for s in suggestions if s["recipe_id"] == "occupancy_light_off")
