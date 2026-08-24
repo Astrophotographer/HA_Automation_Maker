@@ -56,7 +56,53 @@ class EventStore:
             conn.execute(
                 "CREATE INDEX IF NOT EXISTS idx_events_entity ON events(entity_id, ts)"
             )
+            conn.execute(
+                """
+                CREATE UNIQUE INDEX IF NOT EXISTS idx_events_dedup
+                ON events(entity_id, ts, COALESCE(old_state, ''), new_state)
+                """
+            )
             conn.commit()
+
+    def _insert_row(
+        self,
+        conn: sqlite3.Connection,
+        *,
+        ts: float,
+        entity_id: str,
+        domain: str,
+        old_state: str | None,
+        new_state: str,
+        actor: str,
+        area_id: str | None,
+        hour: int,
+        weekday: int,
+        ignore_duplicates: bool,
+    ) -> bool:
+        sql = (
+            "INSERT OR IGNORE INTO events"
+            if ignore_duplicates
+            else "INSERT INTO events"
+        )
+        cur = conn.execute(
+            f"""
+            {sql}
+            (ts, entity_id, domain, old_state, new_state, actor, area_id, hour, weekday)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                ts,
+                entity_id,
+                domain,
+                old_state,
+                new_state,
+                actor,
+                area_id,
+                hour,
+                weekday,
+            ),
+        )
+        return cur.rowcount > 0
 
     def insert(
         self,
@@ -69,27 +115,53 @@ class EventStore:
         actor: str,
         area_id: str | None = None,
     ) -> None:
-        when = datetime.fromtimestamp(ts or datetime.now(timezone.utc).timestamp(), tz=timezone.utc)
+        when = datetime.fromtimestamp(
+            ts or datetime.now(timezone.utc).timestamp(), tz=timezone.utc
+        )
         with self._connect() as conn:
-            conn.execute(
-                """
-                INSERT INTO events
-                (ts, entity_id, domain, old_state, new_state, actor, area_id, hour, weekday)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-                """,
-                (
-                    when.timestamp(),
-                    entity_id,
-                    domain,
-                    old_state,
-                    new_state,
-                    actor,
-                    area_id,
-                    when.hour,
-                    when.weekday(),
-                ),
+            self._insert_row(
+                conn,
+                ts=when.timestamp(),
+                entity_id=entity_id,
+                domain=domain,
+                old_state=old_state,
+                new_state=new_state,
+                actor=actor,
+                area_id=area_id,
+                hour=when.hour,
+                weekday=when.weekday(),
+                ignore_duplicates=False,
             )
             conn.commit()
+
+    def insert_if_new(
+        self,
+        *,
+        ts: float,
+        entity_id: str,
+        domain: str,
+        old_state: str | None,
+        new_state: str,
+        actor: str,
+        area_id: str | None = None,
+    ) -> bool:
+        when = datetime.fromtimestamp(ts, tz=timezone.utc)
+        with self._connect() as conn:
+            inserted = self._insert_row(
+                conn,
+                ts=when.timestamp(),
+                entity_id=entity_id,
+                domain=domain,
+                old_state=old_state,
+                new_state=new_state,
+                actor=actor,
+                area_id=area_id,
+                hour=when.hour,
+                weekday=when.weekday(),
+                ignore_duplicates=True,
+            )
+            conn.commit()
+            return inserted
 
     def purge_older_than(self, days: int) -> int:
         cutoff = datetime.now(timezone.utc).timestamp() - days * 86400
@@ -107,6 +179,13 @@ class EventStore:
         with self._connect() as conn:
             row = conn.execute("SELECT COUNT(*) AS c FROM events").fetchone()
             return int(row["c"] if row else 0)
+
+    def max_ts(self) -> float | None:
+        with self._connect() as conn:
+            row = conn.execute("SELECT MAX(ts) AS mx FROM events").fetchone()
+        if not row or row["mx"] is None:
+            return None
+        return float(row["mx"])
 
     def span_days(self) -> float:
         with self._connect() as conn:

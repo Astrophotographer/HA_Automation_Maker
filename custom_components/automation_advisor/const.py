@@ -1,7 +1,7 @@
 """Constants for Automation Advisor."""
 
 DOMAIN = "automation_advisor"
-VERSION = "0.2.1"
+VERSION = "0.2.11"
 
 CONF_TRIAL_MODE = "trial_mode"
 CONF_HABIT_LEARNING = "habit_learning"
@@ -30,6 +30,28 @@ MIN_PATTERN_SUPPORT = 3
 MIN_PATTERN_CONFIDENCE = 0.5
 MIN_PATTERN_LIFT = 1.2
 EVENT_RETENTION_DAYS = 30
+
+# Domains ignored by habit observer and recorder backfill.
+OBSERVE_SKIP_DOMAINS = frozenset(
+    {
+        "automation",
+        "script",
+        "scene",
+        "zone",
+        "persistent_notification",
+        "conversation",
+        "update",
+        "button",
+        "event",
+        "todo",
+        "calendar",
+        "camera",
+        "image",
+        "tts",
+        "stt",
+        "assist_satellite",
+    }
+)
 
 SUGGESTIONS_FILENAME = ".automation_advisor_suggestions.json"
 AUTOMATIONS_FILENAME = "automation_advisor.yaml"

@@ -9,31 +9,12 @@ from homeassistant.const import EVENT_STATE_CHANGED
 from homeassistant.core import Event, HomeAssistant, callback
 
 from .actor import classify_actor, is_learnable
-from .const import EVENT_RETENTION_DAYS
+from .const import EVENT_RETENTION_DAYS, OBSERVE_SKIP_DOMAINS
 from .event_store import EventStore
 
 _LOGGER = logging.getLogger(__name__)
 
-_SKIP_DOMAINS = frozenset(
-    {
-        "automation",
-        "script",
-        "scene",
-        "zone",
-        "persistent_notification",
-        "conversation",
-        "update",
-        "button",
-        "event",
-        "todo",
-        "calendar",
-        "camera",
-        "image",
-        "tts",
-        "stt",
-        "assist_satellite",
-    }
-)
+_SKIP_DOMAINS = OBSERVE_SKIP_DOMAINS
 
 
 class Observer:

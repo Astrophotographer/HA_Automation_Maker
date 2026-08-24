@@ -55,6 +55,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             f"(필요 {stats.get('min_observe_days', 7)}일), "
             f"패턴 {stats.get('patterns', 0)}개."
         )
+        backfilled = int(stats.get("recorder_backfilled") or 0)
+        if backfilled:
+            habit_line += f" Recorder에서 {backfilled}건 추가."
         # Refresh prompts for pending (including copy updated in-place on re-scan).
         prompted = await coordinator.async_prompt_new()
         pending = coordinator.pending_suggestions

@@ -35,6 +35,7 @@ from .inventory import existing_automation_entity_sets, snapshot_inventory
 from .notifications import ask_automate
 from .observe import Observer
 from .pattern import discover_patterns
+from .recorder_backfill import backfill_from_recorder
 from .recommender import recommend
 from .safety import is_blocked
 from .suggestion_policy import blocks_resuggestion, suggestion_key
@@ -55,6 +56,7 @@ class AdvisorCoordinator:
             "span_days": 0.0,
             "patterns": 0,
             "ready": False,
+            "recorder_backfilled": 0,
         }
         self._suggestions_file = Path(hass.config.path(SUGGESTIONS_FILENAME))
         self._automations_file = Path(hass.config.path(AUTOMATIONS_FILENAME))
@@ -152,12 +154,16 @@ class AdvisorCoordinator:
             community_rates = await self.hass.async_add_executor_job(load_community_rates)
 
         habit_patterns = []
+        backfilled = 0
         min_days = int(self._opt(CONF_MIN_OBSERVE_DAYS, DEFAULT_MIN_OBSERVE_DAYS))
         if self._opt(CONF_HABIT_LEARNING, DEFAULT_HABIT_LEARNING):
             await self.hass.async_add_executor_job(
                 self._event_store.purge_older_than, EVENT_RETENTION_DAYS
             )
             lookback = max(min_days, EVENT_RETENTION_DAYS)
+            backfilled = await backfill_from_recorder(
+                self.hass, self._event_store, days=lookback
+            )
             events = await self.hass.async_add_executor_job(
                 self._event_store.fetch_since, lookback
             )
@@ -167,8 +173,10 @@ class AdvisorCoordinator:
                     discover_patterns, events
                 )
             await self._refresh_habit_stats(len(habit_patterns))
+            self.habit_stats["recorder_backfilled"] = backfilled
         else:
             await self._refresh_habit_stats(0)
+            self.habit_stats["recorder_backfilled"] = 0
 
         llm_base = (self._opt(CONF_LLM_BASE_URL, "") or "").strip() or None
         llm_model = (self._opt(CONF_LLM_MODEL, "") or "").strip() or None

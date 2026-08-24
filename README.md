@@ -72,7 +72,7 @@ automation advisor: !include automation_advisor.yaml
 
 개발자 도구 → 동작 → `automation_advisor.scan` → 실행.
 
-Recorder를 읽지 않습니다. 현재 엔티티·영역·device_class와 `recipes.json`을 맞춥니다.
+v1 카탈로그는 Recorder를 읽지 않습니다. v2 습관 학습은 **스캔할 때마다** Home Assistant Recorder에서 learnable 수동 조작 이력을 SQLite로 백필한 뒤(중복 제외), 실시간 Observer와 합쳐 패턴을 찾습니다.
 
 ### 2. 지금 한 번 실행
 

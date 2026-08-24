@@ -26,6 +26,10 @@ from automation_advisor.event_store import EventStore, StoredEvent  # noqa: E402
 from automation_advisor.pattern import discover_patterns, habit_to_automation  # noqa: E402
 from automation_advisor.safety import BLOCKED_ACTION_DOMAINS, is_blocked  # noqa: E402
 from automation_advisor.recommender import recommend  # noqa: E402
+from automation_advisor.recorder_backfill import (  # noqa: E402
+    entity_ids_for_backfill,
+    iter_learnable_changes,
+)
 from automation_advisor.suggestion_policy import blocks_resuggestion  # noqa: E402
 
 
@@ -291,6 +295,97 @@ class EventStoreTests(unittest.TestCase):
             rows = store.fetch_since(7)
             self.assertEqual(len(rows), 1)
             self.assertEqual(rows[0].entity_id, "light.a")
+
+    def test_insert_if_new_dedupes(self) -> None:
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as tmp:
+            store = EventStore(Path(tmp) / "e.db")
+            ts = datetime(2026, 1, 1, 12, 0, tzinfo=timezone.utc).timestamp()
+            payload = {
+                "ts": ts,
+                "entity_id": "light.a",
+                "domain": "light",
+                "old_state": "off",
+                "new_state": "on",
+                "actor": ACTOR_HUMAN,
+                "area_id": "living",
+            }
+            self.assertTrue(store.insert_if_new(**payload))
+            self.assertFalse(store.insert_if_new(**payload))
+            self.assertEqual(store.count(), 1)
+
+    def test_max_ts(self) -> None:
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as tmp:
+            store = EventStore(Path(tmp) / "e.db")
+            self.assertIsNone(store.max_ts())
+            early = datetime(2026, 1, 1, 8, 0, tzinfo=timezone.utc).timestamp()
+            late = datetime(2026, 1, 2, 8, 0, tzinfo=timezone.utc).timestamp()
+            store.insert_if_new(
+                ts=early,
+                entity_id="light.a",
+                domain="light",
+                old_state="off",
+                new_state="on",
+                actor=ACTOR_HUMAN,
+            )
+            store.insert_if_new(
+                ts=late,
+                entity_id="light.b",
+                domain="light",
+                old_state="off",
+                new_state="on",
+                actor=ACTOR_HUMAN,
+            )
+            self.assertEqual(store.max_ts(), late)
+
+
+class RecorderBackfillTests(unittest.TestCase):
+    def test_entity_ids_for_backfill_skips_sensors(self) -> None:
+        selected = entity_ids_for_backfill(
+            [
+                "light.kitchen",
+                "binary_sensor.motion",
+                "automation.test",
+                "sensor.temperature",
+            ]
+        )
+        self.assertEqual(selected, ["light.kitchen"])
+
+    def test_iter_learnable_changes_filters_automation_actor(self) -> None:
+        class _Ctx:
+            def __init__(self, user_id=None, parent_id=None, context_id=None):
+                self.user_id = user_id
+                self.parent_id = parent_id
+                self.id = context_id
+
+        class _State:
+            def __init__(self, state, changed, *, user_id=None, parent_id=None):
+                self.state = state
+                self.last_changed = changed
+                self.context = _Ctx(user_id=user_id, parent_id=parent_id)
+
+        t0 = datetime(2026, 1, 1, 18, 0, tzinfo=timezone.utc)
+        t1 = t0 + timedelta(minutes=1)
+        automation_only = [
+            _State("off", t0),
+            _State("on", t1, parent_id="automation.run"),
+        ]
+        self.assertEqual(
+            iter_learnable_changes("light.living", automation_only, area_id="living"),
+            [],
+        )
+
+        human_change = [
+            _State("off", t0),
+            _State("on", t1, user_id="abc"),
+        ]
+        events = iter_learnable_changes("light.living", human_change, area_id="living")
+        self.assertEqual(len(events), 1)
+        self.assertEqual(events[0]["new_state"], "on")
+        self.assertEqual(events[0]["actor"], ACTOR_HUMAN)
 
 
 class PackageTests(unittest.TestCase):
