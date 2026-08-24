@@ -60,6 +60,9 @@ def recommend(
         behavior = describe_match_behavior(match, names)
         community = enrich_explanation("", match.recipe_id, community_rates).strip()
         explanation = behavior if not community else f"{behavior}\n\n{community}"
+        entity_names = {
+            eid: names[eid] for eid in entities if eid in names and names[eid]
+        }
         out.append(
             {
                 "id": suggestion_id,
@@ -68,6 +71,7 @@ def recommend(
                 "title": match.title,
                 "explanation": explanation,
                 "behavior": behavior,
+                "entity_names": entity_names,
                 "area_id": match.area_id,
                 "area_name": match.area_name,
                 "entities": sorted(entities),

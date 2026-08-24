@@ -142,8 +142,9 @@ def suggestion_detail_text(suggestion: dict, names: dict[str, str] | None = None
     behavior = suggestion.get("behavior")
     if behavior:
         return str(behavior)
+    merged = {**(suggestion.get("entity_names") or {}), **(names or {})}
     auto = suggestion.get("automation") or {}
-    derived = describe_automation_behavior(auto, names)
+    derived = describe_automation_behavior(auto, merged)
     if derived:
         return derived
     return str(suggestion.get("explanation") or "")

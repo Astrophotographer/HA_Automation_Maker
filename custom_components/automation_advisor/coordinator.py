@@ -214,6 +214,7 @@ class AdvisorCoordinator:
                 sid = existing["id"]
                 existing["behavior"] = suggestion.get("behavior")
                 existing["explanation"] = suggestion.get("explanation")
+                existing["entity_names"] = suggestion.get("entity_names") or {}
                 existing["title"] = suggestion.get("title")
                 auto = dict(suggestion.get("automation") or {})
                 if auto:
@@ -244,7 +245,7 @@ class AdvisorCoordinator:
 
     def _refresh_behaviors(self, inventory: list | None = None) -> None:
         """Fill concrete condition/action text on pending/previewed suggestions."""
-        from .behavior import describe_automation_behavior
+        from .behavior import describe_automation_behavior, describe_match_behavior
         from .inventory import snapshot_inventory
 
         if inventory is None:
@@ -253,19 +254,26 @@ class AdvisorCoordinator:
         for suggestion in self.suggestions:
             if suggestion.get("status") not in {"pending", "previewed"}:
                 continue
+            stored_names = dict(suggestion.get("entity_names") or {})
+            merged = {**names, **stored_names}
             derived = describe_automation_behavior(
-                suggestion.get("automation") or {}, names
+                suggestion.get("automation") or {}, merged
             )
+            if not derived and suggestion.get("behavior"):
+                derived = str(suggestion["behavior"])
             if not derived:
                 continue
-            suggestion["behavior"] = derived
+            # Prefer already-built behavior from recommend; only fill if missing.
+            if not suggestion.get("behavior"):
+                suggestion["behavior"] = derived
+            behavior = str(suggestion["behavior"])
             old = str(suggestion.get("explanation") or "")
             stub = ""
             marker = "(비슷한 환경"
             idx = old.find(marker)
             if idx >= 0:
-                stub = "\n\n" + old[idx:]
-            suggestion["explanation"] = derived + stub
+                stub = "\n\n" + old[idx:].strip()
+            suggestion["explanation"] = behavior + stub
 
     async def async_prompt_new(self) -> int:
         from .notifications import ask_run_once, sync_web_inbox
