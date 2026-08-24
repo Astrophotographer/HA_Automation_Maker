@@ -46,20 +46,6 @@ async def clear_suggestion_card(hass: HomeAssistant, suggestion_id: str) -> None
         await _fanout_mobile(hass, clear_notification_payload(tag))
 
 
-async def show_busy_card(hass: HomeAssistant, suggestion: dict, message: str) -> None:
-    """Same card, no action buttons — used the moment a button is pressed."""
-    sid = str(suggestion["id"])
-    title = suggestion.get("title") or "Automation Advisor"
-    payload = mobile_card_payload(
-        title=title,
-        body=message,
-        suggestion_id=sid,
-        actions=[],
-    )
-    await _persistent(hass, title, message, suggestion_card_tag(sid))
-    await _fanout_mobile(hass, payload)
-
-
 def _web_run_message(suggestion: dict) -> str:
     sid = str(suggestion["id"])
     detail = suggestion_detail_text(suggestion)
