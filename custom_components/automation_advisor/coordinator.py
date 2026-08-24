@@ -201,6 +201,29 @@ class AdvisorCoordinator:
         new_count = 0
         for suggestion in new_suggestions:
             key = suggestion_key(suggestion)
+            existing = next(
+                (
+                    s
+                    for s in self.suggestions
+                    if suggestion_key(s) == key and s.get("status") == "pending"
+                ),
+                None,
+            )
+            if existing is not None:
+                # Keep the same id; refresh concrete copy + compiled automation.
+                sid = existing["id"]
+                existing["behavior"] = suggestion.get("behavior")
+                existing["explanation"] = suggestion.get("explanation")
+                existing["title"] = suggestion.get("title")
+                auto = dict(suggestion.get("automation") or {})
+                if auto:
+                    auto["id"] = f"advisor_{suggestion.get('recipe_id')}_{sid}"
+                    desc = str(auto.get("description") or "")
+                    if "]" in desc:
+                        auto["description"] = f"[Advisor:{sid}]" + desc.split("]", 1)[1]
+                    existing["automation"] = auto
+                existing["asked_run"] = False
+                continue
             if key in blocked_keys:
                 continue
             self.suggestions.insert(0, suggestion)
