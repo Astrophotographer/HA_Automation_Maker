@@ -55,9 +55,9 @@ def mobile_card_payload(
             "channel": "Automation Advisor",
             "importance": "high",
             "priority": "high",
-            # sticky keeps the old [실행][나중에][기각] buttons after a tap.
-            "sticky": False,
-            "persistent": False,
+            # Keep the same Android/iOS row so title/actions can be replaced.
+            "sticky": True,
+            "alert_once": True,
             "actions": actions,
             **flat,
         },

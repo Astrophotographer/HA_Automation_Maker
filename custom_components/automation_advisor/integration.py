@@ -10,7 +10,7 @@ import homeassistant.helpers.config_validation as cv
 from .actions import KIND_DEPLOY, KIND_DISMISS, KIND_LATER, KIND_RUN, parse_action
 from .const import DOMAIN
 from .coordinator import AdvisorCoordinator
-from .notifications import clear_suggestion_card
+from .notifications import ask_automate, clear_suggestion_card
 
 PLATFORMS = ["sensor"]
 
@@ -111,10 +111,14 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         if not parsed:
             return
         kind, suggestion_id = parsed
-        # Drop the tapped card (and its buttons) immediately.
-        await clear_suggestion_card(hass, suggestion_id)
+        if kind in {KIND_LATER, KIND_DISMISS}:
+            await clear_suggestion_card(hass, suggestion_id)
         if kind == KIND_RUN:
-            await coordinator.async_run_once(suggestion_id)
+            suggestion = coordinator._get_suggestion(suggestion_id)
+            if suggestion:
+                # Replace [실행][나중에][기각] with [자동화][아니요] on the same tag.
+                await ask_automate(hass, suggestion)
+            await coordinator.async_run_once(suggestion_id, prompt_automate=False)
         elif kind == KIND_DEPLOY:
             await coordinator.async_deploy(suggestion_id)
         elif kind == KIND_LATER:

@@ -82,8 +82,9 @@ class SuggestionCardTests(unittest.TestCase):
         self.assertEqual(auto["data"]["group"], tag)
         self.assertEqual(auto["data"]["action_3_key"], "")
         self.assertEqual(auto["data"]["action_3_title"], "")
-        self.assertFalse(run["data"]["sticky"])
-        self.assertFalse(run["data"]["persistent"])
+        self.assertTrue(run["data"]["sticky"])
+        self.assertTrue(run["data"]["alert_once"])
+        self.assertEqual(run["data"]["tag"], auto["data"]["tag"])
 
     def test_later_and_dismiss_clear_that_card_and_legacy_tags(self) -> None:
         sid = "f1cfa7dc"

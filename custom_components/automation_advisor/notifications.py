@@ -135,17 +135,6 @@ async def ask_run_once(hass: HomeAssistant, suggestion: dict) -> None:
 
 async def ask_automate(hass: HomeAssistant, suggestion: dict) -> None:
     sid = str(suggestion["id"])
-    # Kill any legacy second-card tags from older builds before replacing.
-    for tag in suggestion_card_tags(sid):
-        if tag == suggestion_card_tag(sid):
-            continue
-        await hass.services.async_call(
-            "persistent_notification",
-            "dismiss",
-            {"notification_id": tag},
-            blocking=False,
-        )
-        await _fanout_mobile(hass, clear_notification_payload(tag))
     title = "자동화하시겠습니까?"
     detail = suggestion_detail_text(suggestion)
     body = (

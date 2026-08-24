@@ -336,7 +336,9 @@ class AdvisorCoordinator:
         )
         return prompted
 
-    async def async_run_once(self, suggestion_id: str) -> bool:
+    async def async_run_once(
+        self, suggestion_id: str, *, prompt_automate: bool = True
+    ) -> bool:
         suggestion = self._get_suggestion(suggestion_id)
         if not suggestion or suggestion.get("status") != "pending":
             return False
@@ -359,7 +361,8 @@ class AdvisorCoordinator:
         suggestion["previewed_at"] = datetime.now().isoformat()
         await self._save()
         self._notify()
-        await ask_automate(self.hass, suggestion)
+        if prompt_automate:
+            await ask_automate(self.hass, suggestion)
         await sync_web_inbox(
             self.hass, self.pending_suggestions, self.previewed_suggestions
         )
