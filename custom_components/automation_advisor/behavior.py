@@ -30,7 +30,7 @@ def _label(
         return "알 수 없는 장치"
     if context_area:
         name = display_name_in_area(name, context_area)
-    return f"**{name}**"
+    return name
 
 
 def _join_labels(
@@ -81,22 +81,22 @@ def describe_match_behavior(
         to_state = trigger.get("to")
         duration = _format_duration(trigger.get("for"))
         if duration and to_state is not None:
-            when = f"{triggers}이(가) **{to_state}** 상태로 **{duration}** 유지되면"
+            when = f"{triggers}이(가) {to_state} 상태로 {duration} 유지되면"
         elif to_state is not None:
-            when = f"{triggers}이(가) **{to_state}** 이(가) 되면"
+            when = f"{triggers}이(가) {to_state} 이(가) 되면"
         else:
             when = f"{triggers} 상태가 바뀌면"
     elif platform == "numeric_state":
         parts = []
         if "above" in trigger:
-            parts.append(f"**{trigger['above']}** 초과")
+            parts.append(f"{trigger['above']} 초과")
         if "below" in trigger:
-            parts.append(f"**{trigger['below']}** 미만")
+            parts.append(f"{trigger['below']} 미만")
         thresh = " · ".join(parts) or "임계값"
         when = f"{triggers}이(가) {thresh}이면"
     elif platform == "sun":
         event = str(trigger.get("event", "sunset"))
-        when = f"**{_SUN_EVENTS.get(event, event)}**이면"
+        when = f"{_SUN_EVENTS.get(event, event)}이면"
     else:
         when = f"트리거({platform}): {triggers}"
 
@@ -104,13 +104,13 @@ def describe_match_behavior(
         title = spec.get("notify_title") or "알림"
         then = f"알림 보내기 — 「{title}」"
     elif match.action_entity_ids:
-        then = f"{actions} **{action_verb}**"
+        then = f"{actions} {action_verb}"
     else:
         then = action_verb or action_name
 
     area_label = short_area_name(match.area_name)
     area_suffix = f"（{area_label}）" if area_label else ""
-    return f"**조건{area_suffix}:** {when}\n**동작:** {then}"
+    return f"조건{area_suffix}: {when}\n동작: {then}"
 
 
 def describe_automation_behavior(
@@ -139,14 +139,14 @@ def describe_automation_behavior(
         to_state = trig.get("to")
         duration = _format_duration(trig.get("for"))
         if duration and to_state is not None:
-            when = f"{trigger_labels}이(가) **{to_state}** 상태로 **{duration}** 유지되면"
+            when = f"{trigger_labels}이(가) {to_state} 상태로 {duration} 유지되면"
         elif to_state is not None:
-            when = f"{trigger_labels}이(가) **{to_state}** 이(가) 되면"
+            when = f"{trigger_labels}이(가) {to_state} 이(가) 되면"
         else:
             when = f"{trigger_labels} 상태가 바뀌면"
     elif platform == "sun":
         event = str(trig.get("event", "sunset"))
-        when = f"**{_SUN_EVENTS.get(event, event)}**이면"
+        when = f"{_SUN_EVENTS.get(event, event)}이면"
     elif platform == "numeric_state":
         when = f"{trigger_labels} numeric_state"
     else:
@@ -164,11 +164,11 @@ def describe_automation_behavior(
             title = (step.get("data") or {}).get("title") or "알림"
             then = f"알림 보내기 — 「{title}」"
         elif target:
-            then = f"{_join_labels(list(target), names, context_area=context_area)} **{verb}**"
+            then = f"{_join_labels(list(target), names, context_area=context_area)} {verb}"
         else:
             then = verb
 
-    return f"**조건:** {when}\n**동작:** {then}"
+    return f"조건: {when}\n동작: {then}"
 
 
 def suggestion_detail_text(suggestion: dict, names: dict[str, str] | None = None) -> str:

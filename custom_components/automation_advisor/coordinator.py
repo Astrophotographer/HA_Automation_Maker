@@ -92,7 +92,7 @@ class AdvisorCoordinator:
                         "`configuration.yaml`에 "
                         "`automation advisor: !include automation_advisor.yaml` "
                         "를 넣었습니다.\n\n"
-                        "**Home Assistant를 한 번 재시작**하면 배포된 자동화가 로드됩니다."
+                        "Home Assistant를 한 번 재시작하면 배포된 자동화가 로드됩니다."
                     ),
                     "notification_id": "advisor_config_include",
                 },

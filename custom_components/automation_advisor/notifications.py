@@ -50,12 +50,12 @@ def _web_run_message(suggestion: dict) -> str:
     sid = str(suggestion["id"])
     detail = suggestion_detail_text(suggestion)
     return (
-        f"**{suggestion.get('title')}**\n\n"
+        f"{suggestion.get('title')}\n\n"
         f"{detail}\n\n"
-        "**【실행】** 을 누르면 조건을 기다리지 않고 **지금 동작만 한 번** 실행합니다.\n"
+        "【실행】을 누르면 조건을 기다리지 않고 지금 동작만 한 번 실행합니다.\n"
         "자동화 등록은 아직 하지 않습니다.\n\n"
-        "**폰:** Companion 푸시를 펼친 뒤 [실행] [나중에] [기각]\n\n"
-        "**웹:** 사이드바 **Automation Advisor** 대시보드에서 버튼을 누르세요.\n\n"
+        "폰: Companion 푸시를 펼친 뒤 [실행] [나중에] [기각]\n\n"
+        "웹: 사이드바 Automation Advisor 대시보드에서 버튼을 누르세요.\n\n"
         f"직접: `automation_advisor.run_once` → `{sid}`"
     )
 
@@ -64,12 +64,12 @@ def _web_auto_message(suggestion: dict) -> str:
     sid = str(suggestion["id"])
     detail = suggestion_detail_text(suggestion)
     return (
-        f"**{suggestion.get('title')}**\n\n"
+        f"{suggestion.get('title')}\n\n"
         f"{detail}\n\n"
         "방금 한 번 실행해 봤습니다. 위 조건이 맞을 때마다 반복할까요?\n\n"
         "등록하면 시험 모드(꺼진 상태)로 들어갑니다.\n\n"
-        "**폰:** [자동화] [아니요]\n\n"
-        "**웹:** 사이드바 **Automation Advisor** 대시보드에서 버튼을 누르세요.\n\n"
+        "폰: [자동화] [아니요]\n\n"
+        "웹: 사이드바 Automation Advisor 대시보드에서 버튼을 누르세요.\n\n"
         f"직접: `automation_advisor.deploy` → `{sid}`"
     )
 
@@ -94,14 +94,14 @@ async def sync_web_inbox(
         return
 
     lines = [
-        "사이드바 **알림(종)** 은 **해제만** 됩니다.\n\n"
-        f"**웹에서 승인:** [Automation Advisor 대시보드 열기]"
+        "사이드바 알림(종)은 해제만 됩니다.\n\n"
+        f"웹에서 승인: [Automation Advisor 대시보드 열기]"
         f"(/{DASHBOARD_URL}/{VIEW_PATH})\n\n"
-        "거기에 **[실행] [기각]** 버튼이 있습니다.\n"
+        "거기에 [실행] [기각] 버튼이 있습니다.\n"
     ]
     for suggestion in pending[:8]:
         sid = str(suggestion["id"])
-        lines.append(f"- **{suggestion.get('title')}** (`{sid}`)")
+        lines.append(f"- {suggestion.get('title')} (`{sid}`)")
     await _persistent(
         hass,
         f"Automation Advisor — 대기 {len(pending)}건 (웹은 대시보드에서 승인)",

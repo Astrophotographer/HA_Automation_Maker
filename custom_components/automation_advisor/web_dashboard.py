@@ -29,8 +29,8 @@ def build_inbox_config(
             "type": "markdown",
             "content": (
                 "## 승인 대기\n\n"
-                "사이드바 **알림(종)** 에는 **해제**만 있습니다.\n"
-                "웹에서 승인하려면 **아래 버튼**을 누르세요.\n\n"
+                "사이드바 알림(종)에는 해제만 있습니다.\n"
+                "웹에서 승인하려면 아래 버튼을 누르세요.\n\n"
                 "폰 Companion 푸시의 [실행] [나중에] [기각]과 같습니다."
             ),
         }
@@ -43,7 +43,7 @@ def build_inbox_config(
                 "type": "markdown",
                 "content": (
                     "_대기 중인 추천이 없습니다._\n\n"
-                    "`automation_advisor.scan` 또는 아래 **다시 스캔**을 누르세요."
+                    "`automation_advisor.scan` 또는 아래 다시 스캔을 누르세요."
                 ),
             }
         )
@@ -147,7 +147,7 @@ def _suggestion_card(suggestion: dict, *, stage: str) -> dict[str, Any]:
                 "type": "markdown",
                 "content": (
                     f"### {heading}\n"
-                    f"**{title}**\n\n"
+                    f"{title}\n\n"
                     f"{detail}\n\n"
                     f"`{sid}`"
                 ),

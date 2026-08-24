@@ -37,9 +37,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             message=(
                 "v1: 장비×카탈로그 즉시 추천. v2: 수동 조작만 로컬에 모아 습관 패턴을 만듭니다.\n"
                 "승인 전에는 Home Assistant에 넣지 않습니다.\n\n"
-                "**1.** `automation_advisor.scan`\n"
-                "**2.** Companion에서 **실행하시겠습니까?** → 한 번 실행\n"
-                "**3.** **자동화하시겠습니까?** → 시험 등록\n\n"
+                "1. `automation_advisor.scan`\n"
+                "2. Companion에서 실행하시겠습니까? → 한 번 실행\n"
+                "3. 자동화하시겠습니까? → 시험 등록\n\n"
                 "`configuration.yaml`:\n"
                 "`automation advisor: !include automation_advisor.yaml`"
             ),
@@ -75,7 +75,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             )
             return
         lines = "\n".join(
-            f"• **{s.get('title')}** [{s.get('source')}] — "
+            f"• {s.get('title')} [{s.get('source')}] — "
             f"{s.get('behavior') or s.get('explanation')} (ID: `{s['id']}`)"
             for s in pending[:12]
         )
@@ -86,9 +86,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                 f"카탈로그·습관 후보 (신규 {count}개, 알림 {prompted}건).\n\n"
                 f"{habit_line}\n\n"
                 f"{lines}\n\n"
-                "**실행/기각:** Companion 푸시(폰) 또는 "
-                "사이드바 **Automation Advisor** 대시보드.\n"
-                "웹 알림(종)의 **해제**는 닫기만 합니다."
+                "실행/기각: Companion 푸시(폰) 또는 "
+                "사이드바 Automation Advisor 대시보드.\n"
+                "웹 알림(종)의 해제는 닫기만 합니다."
             ),
             notification_id="advisor_scan_done",
         )
