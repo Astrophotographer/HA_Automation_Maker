@@ -95,7 +95,11 @@ def build_inbox_config(
 def _suggestion_card(suggestion: dict, *, stage: str) -> dict[str, Any]:
     sid = str(suggestion["id"])
     title = suggestion.get("title") or sid
-    explanation = suggestion.get("explanation") or ""
+    detail = (
+        suggestion.get("behavior")
+        or suggestion.get("explanation")
+        or ""
+    )
     if stage == "deploy":
         heading = "자동화하시겠습니까?"
         primary = {
@@ -144,7 +148,7 @@ def _suggestion_card(suggestion: dict, *, stage: str) -> dict[str, Any]:
                 "content": (
                     f"### {heading}\n"
                     f"**{title}**\n\n"
-                    f"{explanation}\n\n"
+                    f"{detail}\n\n"
                     f"`{sid}`"
                 ),
             },

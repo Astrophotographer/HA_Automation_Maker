@@ -118,6 +118,7 @@ class AdvisorPendingSensor(_AdvisorBase):
                     "id": suggestion.get("id"),
                     "title": suggestion.get("title"),
                     "explanation": suggestion.get("explanation"),
+                    "behavior": suggestion.get("behavior"),
                     "source": suggestion.get("source"),
                     "area_name": suggestion.get("area_name"),
                     "trial": suggestion.get("trial"),

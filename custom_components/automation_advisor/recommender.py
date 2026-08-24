@@ -5,6 +5,7 @@ from __future__ import annotations
 import uuid
 from datetime import datetime, timezone
 
+from .behavior import describe_match_behavior
 from .catalog import load_recipes, match_recipes
 from .community import enrich_explanation, load_community_rates
 from .compiler import compile_suggestion
@@ -41,6 +42,7 @@ def recommend(
     recipes = recipes if recipes is not None else load_recipes()
     if community_rates is None:
         community_rates = {}
+    names = {e.entity_id: e.friendly_name for e in inventory}
     out: list[dict] = []
     seen: set[tuple] = set()
 
@@ -55,9 +57,9 @@ def recommend(
         if _conflicts(entities, existing_entity_sets):
             continue
         suggestion_id = uuid.uuid4().hex[:8]
-        explanation = enrich_explanation(
-            match.explanation, match.recipe_id, community_rates
-        )
+        behavior = describe_match_behavior(match, names)
+        community = enrich_explanation("", match.recipe_id, community_rates).strip()
+        explanation = behavior if not community else f"{behavior}\n\n{community}"
         out.append(
             {
                 "id": suggestion_id,
@@ -65,6 +67,7 @@ def recommend(
                 "source": "catalog",
                 "title": match.title,
                 "explanation": explanation,
+                "behavior": behavior,
                 "area_id": match.area_id,
                 "area_name": match.area_name,
                 "entities": sorted(entities),

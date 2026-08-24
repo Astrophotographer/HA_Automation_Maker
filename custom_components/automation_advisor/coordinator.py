@@ -209,6 +209,7 @@ class AdvisorCoordinator:
 
         self.last_scan = datetime.now().strftime("%Y-%m-%d %H:%M")
         self.status = "idle"
+        self._refresh_behaviors(inventory)
         await self._save()
         self._notify()
         _LOGGER.info(
@@ -218,9 +219,35 @@ class AdvisorCoordinator:
         )
         return new_count
 
+    def _refresh_behaviors(self, inventory: list | None = None) -> None:
+        """Fill concrete condition/action text on pending/previewed suggestions."""
+        from .behavior import describe_automation_behavior
+        from .inventory import snapshot_inventory
+
+        if inventory is None:
+            inventory = snapshot_inventory(self.hass)
+        names = {e.entity_id: e.friendly_name for e in inventory}
+        for suggestion in self.suggestions:
+            if suggestion.get("status") not in {"pending", "previewed"}:
+                continue
+            derived = describe_automation_behavior(
+                suggestion.get("automation") or {}, names
+            )
+            if not derived:
+                continue
+            suggestion["behavior"] = derived
+            old = str(suggestion.get("explanation") or "")
+            stub = ""
+            marker = "(비슷한 환경"
+            idx = old.find(marker)
+            if idx >= 0:
+                stub = "\n\n" + old[idx:]
+            suggestion["explanation"] = derived + stub
+
     async def async_prompt_new(self) -> int:
         from .notifications import ask_run_once, sync_web_inbox
 
+        self._refresh_behaviors()
         prompted = 0
         for suggestion in self.pending_suggestions:
             if suggestion.get("asked_run"):
@@ -240,6 +267,7 @@ class AdvisorCoordinator:
     async def async_reprompt(self, limit: int = 3) -> int:
         from .notifications import ask_run_once, sync_web_inbox
 
+        self._refresh_behaviors()
         prompted = 0
         for suggestion in self.pending_suggestions:
             await ask_run_once(self.hass, suggestion)
