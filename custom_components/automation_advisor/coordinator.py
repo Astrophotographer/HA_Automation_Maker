@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import logging
+import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -42,6 +43,7 @@ from .observe import Observer
 from .pattern import discover_patterns
 from .recorder_backfill import backfill_from_recorder
 from .recommender import recommend
+from .chat_yaml import apply_chat_defaults, assert_automation_safe, collect_entity_ids
 from .safety import is_blocked
 from .suggestion_policy import blocks_resuggestion, suggestion_key
 
@@ -472,6 +474,73 @@ class AdvisorCoordinator:
 
     def _get_suggestion(self, sid: str) -> dict | None:
         return next((s for s in self.suggestions if s.get("id") == sid), None)
+
+    @property
+    def event_store(self) -> EventStore:
+        return self._event_store
+
+    def llm_options(self) -> tuple[str | None, str | None, str | None]:
+        base = (self._opt(CONF_LLM_BASE_URL, "") or "").strip() or None
+        model = (self._opt(CONF_LLM_MODEL, "") or "").strip() or None
+        key = (self._opt(CONF_LLM_API_KEY, "") or "").strip() or None
+        return base, model, key
+
+    def find_suggestion_any(self, target_id: str) -> dict | None:
+        """Match suggestion id or compiled automation id."""
+        for suggestion in self.suggestions:
+            if suggestion.get("id") == target_id:
+                return suggestion
+            auto = suggestion.get("automation") or {}
+            if auto.get("id") == target_id:
+                return suggestion
+        return None
+
+    async def async_chat_create(self, automation: dict, *, title: str) -> str:
+        suggestion_id = f"chat_{uuid.uuid4().hex[:10]}"
+        auto = apply_chat_defaults(dict(automation), suggestion_id)
+        assert_automation_safe(auto)
+        entities = collect_entity_ids(auto)
+        self.suggestions.append(
+            {
+                "id": suggestion_id,
+                "recipe_id": "chat",
+                "source": "chat",
+                "title": title or auto.get("alias") or suggestion_id,
+                "explanation": auto.get("description") or title,
+                "entities": entities,
+                "status": "deployed",
+                "created_at": datetime.now(timezone.utc).isoformat(),
+                "deployed_at": datetime.now(timezone.utc).isoformat(),
+                "feedback": None,
+                "trial": auto.get("initial_state") is False,
+                "automation": auto,
+            }
+        )
+        await self._save()
+        await self._rewrite_automations_file()
+        await self.hass.services.async_call("automation", "reload")
+        self._notify()
+        return suggestion_id
+
+    async def async_chat_update(
+        self, target_id: str, automation: dict, *, title: str
+    ) -> None:
+        suggestion = self.find_suggestion_any(target_id)
+        if not suggestion:
+            raise ValueError(f"자동화를 찾지 못했습니다: {target_id}")
+        suggestion_id = str(suggestion.get("id"))
+        auto = apply_chat_defaults(dict(automation), suggestion_id)
+        assert_automation_safe(auto)
+        suggestion["automation"] = auto
+        suggestion["title"] = title or auto.get("alias") or suggestion.get("title")
+        suggestion["entities"] = collect_entity_ids(auto)
+        suggestion["status"] = "deployed"
+        suggestion["deployed_at"] = datetime.now(timezone.utc).isoformat()
+        suggestion["source"] = suggestion.get("source") or "chat"
+        await self._save()
+        await self._rewrite_automations_file()
+        await self.hass.services.async_call("automation", "reload")
+        self._notify()
 
     @property
     def pending_suggestions(self) -> list[dict]:

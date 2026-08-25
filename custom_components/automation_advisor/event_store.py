@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import sqlite3
 from dataclasses import dataclass
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 from pathlib import Path
 
 
@@ -19,6 +19,20 @@ class StoredEvent:
     area_id: str | None
     hour: int
     weekday: int
+
+
+def _row_to_event(r: sqlite3.Row) -> StoredEvent:
+    return StoredEvent(
+        ts=float(r["ts"]),
+        entity_id=r["entity_id"],
+        domain=r["domain"],
+        old_state=r["old_state"],
+        new_state=r["new_state"],
+        actor=r["actor"],
+        area_id=r["area_id"],
+        hour=int(r["hour"]),
+        weekday=int(r["weekday"]),
+    )
 
 
 class EventStore:
@@ -208,17 +222,19 @@ class EventStore:
                 """,
                 (cutoff,),
             ).fetchall()
-        return [
-            StoredEvent(
-                ts=float(r["ts"]),
-                entity_id=r["entity_id"],
-                domain=r["domain"],
-                old_state=r["old_state"],
-                new_state=r["new_state"],
-                actor=r["actor"],
-                area_id=r["area_id"],
-                hour=int(r["hour"]),
-                weekday=int(r["weekday"]),
-            )
-            for r in rows
-        ]
+        return [_row_to_event(r) for r in rows]
+
+    def fetch_recent(self, limit: int = 60) -> list[StoredEvent]:
+        """Newest events first, capped for UI display."""
+        limit = max(1, min(int(limit), 200))
+        with self._connect() as conn:
+            rows = conn.execute(
+                """
+                SELECT ts, entity_id, domain, old_state, new_state, actor, area_id, hour, weekday
+                FROM events
+                ORDER BY ts DESC
+                LIMIT ?
+                """,
+                (limit,),
+            ).fetchall()
+        return [_row_to_event(r) for r in rows]

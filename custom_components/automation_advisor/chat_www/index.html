@@ -1,0 +1,733 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Dashboard</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Instrument+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --ink: #0c1116;
+      --panel: #141b22;
+      --panel-2: #1b242e;
+      --line: rgba(255, 255, 255, 0.08);
+      --muted: #8b98a5;
+      --text: #e8eef4;
+      --ha: #03a9f4;
+      --amber: #e8b86d;
+      --ok: #3dd68c;
+      --danger: #ff6b6b;
+    }
+    * { box-sizing: border-box; }
+    html, body { height: 100%; margin: 0; }
+    body {
+      font-family: "Instrument Sans", system-ui, sans-serif;
+      background: #07090c;
+      color: var(--text);
+    }
+    /* Inside HA panel iframe: hide mock rail (HA already has a sidebar). */
+    body.embedded .rail { display: none; }
+    body.embedded .shell { grid-template-columns: 1fr; }
+    .shell {
+      height: 100%;
+      display: grid;
+      grid-template-columns: 72px 1fr;
+      background: var(--ink);
+      position: relative;
+    }
+    .rail {
+      background: #0a0e12;
+      border-right: 1px solid var(--line);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 16px 0;
+      gap: 10px;
+    }
+    .mark {
+      width: 36px; height: 36px; border-radius: 10px;
+      background: linear-gradient(160deg, #03a9f4, #0277bd);
+      display: grid; place-items: center;
+      font-weight: 700; font-size: 13px; color: #041018;
+    }
+    .dot {
+      width: 38px; height: 38px; border-radius: 12px;
+      background: var(--panel-2); color: var(--muted);
+      display: grid; place-items: center; font-size: 16px;
+    }
+    .dot.active { background: #123044; color: var(--ha); }
+    .stage { position: relative; background: #10161c; min-width: 0; display: flex; flex-direction: column; }
+    #dash-root {
+      flex: 1;
+      min-height: 0;
+      overflow: auto;
+      position: relative;
+      z-index: 1;
+    }
+    .topbar {
+      height: 52px; display: flex; align-items: center; justify-content: space-between;
+      padding: 0 20px; border-bottom: 1px solid var(--line);
+    }
+    .crumb { font-size: 13px; color: var(--muted); }
+    .crumb b { color: var(--text); font-weight: 600; }
+    .grid {
+      padding: 20px;
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 14px;
+      opacity: 0.42;
+    }
+    .card {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      padding: 16px;
+      min-height: 120px;
+    }
+    .card h4 { margin: 0 0 8px; font-size: 13px; font-weight: 600; }
+    .card p { margin: 0; font-size: 12px; color: var(--muted); line-height: 1.45; }
+    .stat { font-size: 28px; font-weight: 700; letter-spacing: -0.04em; margin-top: 18px; }
+    .veil {
+      position: absolute; inset: 52px 0 0;
+      display: grid; place-items: center;
+      pointer-events: none;
+      background: radial-gradient(ellipse at center, rgba(16,22,28,0.12), rgba(16,22,28,0.55));
+    }
+    .veil-box {
+      text-align: center;
+      border: 1px dashed rgba(232, 184, 109, 0.45);
+      background: rgba(12, 17, 22, 0.72);
+      padding: 28px 36px;
+      border-radius: 16px;
+      max-width: 420px;
+    }
+    .veil-box .tag {
+      color: var(--amber); font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase;
+    }
+    .veil-box h2 { margin: 8px 0 6px; font-size: 22px; font-weight: 650; }
+    .veil-box p { margin: 0; color: var(--muted); font-size: 14px; line-height: 1.5; }
+    .widget {
+      position: absolute;
+      right: 22px;
+      bottom: 22px;
+      z-index: 20;
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 12px;
+    }
+    .pad {
+      width: min(380px, calc(100vw - 48px));
+      height: min(560px, calc(100vh - 120px));
+      background: #0e141a;
+      border: 1px solid var(--line);
+      border-radius: 20px;
+      box-shadow: 0 18px 50px rgba(0, 0, 0, 0.5);
+      display: none;
+      flex-direction: column;
+      overflow: hidden;
+      transform-origin: bottom right;
+    }
+    .widget.open .pad { display: flex; animation: pop 160ms ease-out; }
+    @keyframes pop {
+      from { opacity: 0; transform: translateY(10px) scale(0.96); }
+      to { opacity: 1; transform: none; }
+    }
+    .chat-head {
+      min-height: 56px; padding: 8px 10px 8px 14px;
+      display: flex; align-items: center; justify-content: space-between;
+      gap: 8px;
+      background: linear-gradient(180deg, #163246, #10202c);
+      border-bottom: 1px solid var(--line);
+    }
+    .live {
+      display: flex; align-items: center; gap: 8px;
+      font-size: 14px; font-weight: 600; flex-shrink: 0;
+    }
+    .head-actions {
+      display: flex; align-items: center; gap: 6px; min-width: 0;
+    }
+    .status-pill {
+      display: inline-flex; align-items: center; gap: 6px;
+      border-radius: 999px;
+      padding: 4px 10px;
+      font-size: 11px; font-weight: 700;
+      background: rgba(255,255,255,0.12);
+      color: rgba(255,255,255,0.85);
+      white-space: nowrap;
+    }
+    .status-pill.ok {
+      background: rgba(61, 214, 140, 0.18);
+      color: #d7fbe9;
+    }
+    .status-pill.warn {
+      background: rgba(232, 184, 109, 0.22);
+      color: #ffe7c2;
+    }
+    .status-pill.bad {
+      background: rgba(255, 107, 107, 0.18);
+      color: #ffd0d0;
+    }
+    .status-pill .dot {
+      width: 8px; height: 8px; border-radius: 50%;
+      background: rgba(255,255,255,0.45);
+      flex: none;
+    }
+    .status-pill.ok .dot {
+      background: #4ade80;
+      box-shadow: 0 0 8px #4ade80;
+    }
+    .status-pill.warn .dot {
+      background: #fbbf24;
+      box-shadow: 0 0 8px #fbbf24;
+    }
+    .status-pill.bad .dot { background: #f87171; }
+    .font-btn {
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      gap: 1px;
+      width: 40px; height: 40px;
+      border: 0; border-radius: 12px;
+      background: transparent; color: #fff; cursor: pointer;
+      padding: 0;
+    }
+    .font-btn:hover { background: rgba(255,255,255,0.12); }
+    .font-btn .aa {
+      font-weight: 700; font-size: 13px; line-height: 1;
+      letter-spacing: -0.04em;
+    }
+    .font-btn .aa .big { font-size: 15px; }
+    .font-btn .aa .small { font-size: 10px; opacity: 0.85; }
+    .font-btn .lbl {
+      font-size: 9px; font-weight: 600; line-height: 1; opacity: 0.9;
+    }
+    .icon-btn {
+      width: 32px; height: 32px; border: 0; border-radius: 10px;
+      background: transparent; color: rgba(255,255,255,0.75); cursor: pointer; font-size: 18px;
+    }
+    .icon-btn:hover { background: rgba(255,255,255,0.12); }
+    .msgs {
+      flex: 1; overflow: auto; padding: 14px;
+      display: flex; flex-direction: column; gap: 10px;
+      font-size: var(--chat-font, 13.5px);
+    }
+    .row { display: flex; }
+    .row.me { justify-content: flex-end; }
+    .bubble {
+      max-width: 92%;
+      padding: 10px 12px;
+      border-radius: 14px;
+      font-size: 1em;
+      line-height: 1.45;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+    .bot { background: var(--panel-2); border: 1px solid var(--line); border-top-left-radius: 4px; }
+    .user { background: #163246; border: 1px solid rgba(3, 169, 244, 0.25); border-top-right-radius: 4px; }
+    .proposal {
+      width: 100%;
+      background: #151d14;
+      border: 1px solid rgba(61, 214, 140, 0.28);
+      border-radius: 14px;
+      padding: 12px;
+    }
+    .proposal h3 { margin: 0 0 6px; font-size: 1em; }
+    .proposal .meta { font-size: 0.92em; color: var(--muted); margin-bottom: 10px; }
+    pre {
+      margin: 0 0 12px;
+      padding: 10px;
+      background: #0a0f0c;
+      border-radius: 10px;
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 0.82em;
+      color: #c7e8d2;
+      overflow: auto;
+      max-height: 180px;
+    }
+    .acts { display: flex; gap: 8px; }
+    .btn {
+      border: 0; border-radius: 10px; padding: 8px 12px;
+      font: 600 12px "Instrument Sans", sans-serif;
+      cursor: pointer;
+    }
+    .btn.go { background: var(--ok); color: #062114; }
+    .btn.no { background: transparent; color: var(--muted); border: 1px solid var(--line); }
+    .btn:disabled { opacity: 0.5; cursor: default; }
+    .composer {
+      padding: 10px 12px 12px;
+      border-top: 1px solid var(--line);
+      display: flex; gap: 8px;
+    }
+    .composer input {
+      flex: 1; height: 42px; border-radius: 12px;
+      border: 1px solid var(--line); background: var(--panel);
+      color: var(--text); padding: 0 12px;
+      font: 1em "Instrument Sans", sans-serif;
+    }
+    .composer input:disabled { opacity: 0.6; }
+    .send {
+      width: 42px; height: 42px; border: 0; border-radius: 12px;
+      background: var(--ha); color: #031018; font-weight: 700; cursor: pointer;
+    }
+    .send:disabled { opacity: 0.5; }
+    .fab {
+      width: 60px; height: 60px; border: 0; border-radius: 50%;
+      background: linear-gradient(160deg, #03a9f4, #0277bd);
+      color: #031018;
+      font-size: 26px;
+      cursor: pointer;
+      box-shadow: 0 10px 28px rgba(3, 169, 244, 0.35);
+      display: grid; place-items: center;
+    }
+    .fab .x { display: none; font-size: 28px; line-height: 1; }
+    .widget.open .fab .bubble-ic { display: none; }
+    .widget.open .fab .x { display: block; }
+    .hint {
+      position: absolute;
+      right: 94px;
+      bottom: 36px;
+      font-size: 12px;
+      color: var(--muted);
+      pointer-events: none;
+      transition: opacity 120ms;
+    }
+    .shell:has(.widget.open) .hint { opacity: 0; }
+    .typing { color: var(--muted); font-size: 0.9em; padding: 0 4px; }
+    .pad[data-font="lg"] { --chat-font: 17px; }
+    .pad[data-font="md"] { --chat-font: 15px; }
+    .pad[data-font="sm"] { --chat-font: 13px; }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <aside class="rail" aria-hidden="true">
+      <div class="mark">HA</div>
+      <div class="dot">⌂</div>
+      <div class="dot active">✦</div>
+      <div class="dot">☰</div>
+    </aside>
+    <main class="stage">
+      <div id="dash-root" aria-label="Dashboard"></div>
+
+      <div class="widget" id="widget">
+        <div class="pad" id="pad" role="dialog" aria-label="Advisor 챗봇" data-font="md">
+          <div class="chat-head">
+            <div class="live">Advisor 챗봇</div>
+            <div class="head-actions">
+              <span class="status-pill" id="statusPill" title="Spark 연결 상태">
+                <span class="dot" aria-hidden="true"></span>
+                <span id="statusText">확인 중</span>
+              </span>
+              <button class="font-btn" type="button" id="fontBtn" aria-label="글자 크기 바꾸기" title="글자 크기">
+                <span class="aa" aria-hidden="true"><span class="big">A</span><span class="small">A</span></span>
+                <span class="lbl" id="fontLabel">중간</span>
+              </button>
+              <button class="icon-btn" type="button" id="closePad" aria-label="닫기">×</button>
+            </div>
+          </div>
+          <div class="msgs" id="msgs"></div>
+          <div class="composer">
+            <input id="input" placeholder="추천, 자동화, 상태, 로그…" autocomplete="off" />
+            <button class="send" type="button" id="send" aria-label="전송">↑</button>
+          </div>
+        </div>
+        <button class="fab" type="button" id="fab" aria-label="챗봇 열기">
+          <span class="bubble-ic">✦</span>
+          <span class="x">×</span>
+        </button>
+      </div>
+      <div class="hint">챗봇 아이콘을 눌러 여닫기</div>
+    </main>
+  </div>
+  <script>
+    // Detect HA panel iframe and drop the mock left rail.
+    try {
+      if (window.parent && window.parent !== window) {
+        document.body.classList.add("embedded");
+      }
+    } catch (_) {
+      document.body.classList.add("embedded");
+    }
+
+    const SESSION_KEY = "advisor_chat_session";
+    const FONT_KEY = "advisor_chat_font";
+    const FONT_SIZES = ["lg", "md", "sm"];
+    const FONT_LABEL = { lg: "크게", md: "중간", sm: "작게" };
+
+    const widget = document.getElementById("widget");
+    const pad = document.getElementById("pad");
+    const fab = document.getElementById("fab");
+    const closePad = document.getElementById("closePad");
+    const msgs = document.getElementById("msgs");
+    const input = document.getElementById("input");
+    const sendBtn = document.getElementById("send");
+    const statusPill = document.getElementById("statusPill");
+    const statusText = document.getElementById("statusText");
+    const fontBtn = document.getElementById("fontBtn");
+    const fontLabel = document.getElementById("fontLabel");
+
+    let healthTimer = null;
+
+    function getHassFromParent() {
+      try {
+        if (!window.parent || window.parent === window) return null;
+        const ha =
+          window.parent.document.querySelector("home-assistant") ||
+          window.parent.document.querySelector("hc-main");
+        return (ha && ha.hass) || window.parent.hass || null;
+      } catch (_) {
+        return null;
+      }
+    }
+
+    function readHassTokensRaw() {
+      const stores = [];
+      try { stores.push(localStorage); } catch (_) {}
+      try {
+        if (window.parent && window.parent !== window) stores.push(window.parent.localStorage);
+      } catch (_) {}
+      for (const store of stores) {
+        try {
+          const direct = store.getItem("hassTokens");
+          if (direct) return direct;
+        } catch (_) {}
+        try {
+          for (let i = 0; i < store.length; i++) {
+            const k = store.key(i);
+            if (k && k.indexOf("hassTokens") === 0) {
+              const raw = store.getItem(k);
+              if (raw) return raw;
+            }
+          }
+        } catch (_) {}
+      }
+      return null;
+    }
+
+    function tokenLooksValid(token) {
+      if (!token || typeof token !== "string") return false;
+      try {
+        const payload = JSON.parse(atob(token.split(".")[1].replace(/-/g, "+").replace(/_/g, "/")));
+        if (payload && typeof payload.exp === "number") {
+          // 30s skew
+          return payload.exp * 1000 > Date.now() + 30000;
+        }
+      } catch (_) {}
+      return true;
+    }
+
+    function getAccessToken() {
+      // 1) Injected by custom panel (query or hash) — most reliable in iframes
+      try {
+        const q = new URLSearchParams(location.search || "");
+        const fromQuery = q.get("access_token") || q.get("ha_token");
+        if (fromQuery) return fromQuery;
+        const hash = new URLSearchParams((location.hash || "").replace(/^#/, ""));
+        const fromHash = hash.get("ha_token") || hash.get("access_token");
+        if (fromHash) return fromHash;
+      } catch (_) {}
+
+      // 2) Live token from parent HA frontend
+      const hass = getHassFromParent();
+      try {
+        const live =
+          (hass && hass.auth && hass.auth.data && hass.auth.data.access_token) ||
+          (hass && hass.auth && hass.auth.accessToken);
+        if (live) return live;
+      } catch (_) {}
+
+      // 3) localStorage fallback
+      const raw = readHassTokensRaw();
+      if (!raw) return null;
+      try {
+        const parsed = JSON.parse(raw);
+        return parsed.access_token || null;
+      } catch (_) {
+        return null;
+      }
+    }
+
+    // Parent custom panel can push refreshed tokens without reload.
+    window.addEventListener("message", (ev) => {
+      try {
+        if (ev.origin !== location.origin) return;
+        const data = ev.data || {};
+        if (data.type === "advisor-ha-token" && data.token) {
+          const url = new URL(location.href);
+          url.hash = "ha_token=" + encodeURIComponent(data.token);
+          history.replaceState(null, "", url.toString());
+          void refreshStatus();
+        }
+      } catch (_) {}
+    });
+
+    function apiHeaders(extra) {
+      const headers = Object.assign({}, extra || {});
+      const token = getAccessToken();
+      if (token) headers.Authorization = "Bearer " + token;
+      return headers;
+    }
+
+    function sessionId() {
+      let id = localStorage.getItem(SESSION_KEY);
+      if (!id) {
+        id = (crypto.randomUUID && crypto.randomUUID()) || String(Date.now());
+        localStorage.setItem(SESSION_KEY, id);
+      }
+      return id;
+    }
+
+    function loadFont() {
+      const saved = localStorage.getItem(FONT_KEY);
+      return FONT_SIZES.includes(saved) ? saved : "md";
+    }
+
+    function applyFont(size) {
+      pad.dataset.font = size;
+      fontLabel.textContent = FONT_LABEL[size];
+      fontBtn.setAttribute("aria-label", `글자 크기 바꾸기 (지금: ${FONT_LABEL[size]})`);
+      fontBtn.title = `글자 크기: ${FONT_LABEL[size]}`;
+      localStorage.setItem(FONT_KEY, size);
+    }
+
+    function cycleFont() {
+      const cur = pad.dataset.font || "md";
+      const next = FONT_SIZES[(FONT_SIZES.indexOf(cur) + 1) % FONT_SIZES.length];
+      applyFont(next);
+    }
+
+    function renderStatus(data) {
+      statusPill.classList.remove("ok", "bad", "warn");
+      if (!data) {
+        statusText.textContent = "확인 중";
+        return;
+      }
+      if (!data.configured) {
+        statusPill.classList.add("bad");
+        statusText.textContent = "미설정";
+        return;
+      }
+      if (!data.ok) {
+        statusPill.classList.add("bad");
+        statusText.textContent = "연결 안 됨";
+        return;
+      }
+      const temp =
+        typeof data.temp_c === "number" ? Math.round(data.temp_c) : null;
+      if (temp === null) {
+        // Connected but no GPU temp yet
+        statusPill.classList.add("warn");
+        statusText.textContent = "연결됨";
+        return;
+      }
+      if (temp >= 90) {
+        statusPill.classList.add("bad");
+        statusText.textContent = `위험 ${temp}°C`;
+      } else if (temp >= 75) {
+        statusPill.classList.add("warn");
+        statusText.textContent = `주의 ${temp}°C`;
+      } else {
+        statusPill.classList.add("ok");
+        statusText.textContent = `연결됨 ${temp}°C`;
+      }
+    }
+
+    async function refreshStatus() {
+      try {
+        const token = getAccessToken();
+        if (!token) {
+          statusPill.classList.remove("ok");
+          statusPill.classList.add("bad");
+          statusText.textContent = "로그인 필요";
+          return;
+        }
+        const res = await fetch("/api/automation_advisor/chat/status", {
+          credentials: "same-origin",
+          headers: apiHeaders(),
+          cache: "no-store",
+        });
+        if (res.status === 401) {
+          statusPill.classList.remove("ok");
+          statusPill.classList.add("bad");
+          statusText.textContent = "토큰 만료";
+          return;
+        }
+        const data = await res.json();
+        renderStatus(data);
+      } catch (_) {
+        statusPill.classList.remove("ok");
+        statusPill.classList.add("bad");
+        statusText.textContent = "연결 안 됨";
+      }
+    }
+
+    function startHealthPoll() {
+      void refreshStatus();
+      clearInterval(healthTimer);
+      healthTimer = setInterval(refreshStatus, 30000);
+    }
+
+    function stopHealthPoll() {
+      clearInterval(healthTimer);
+      healthTimer = null;
+    }
+
+    function toggle(force) {
+      const open = force === undefined ? !widget.classList.contains("open") : force;
+      widget.classList.toggle("open", open);
+      fab.setAttribute("aria-label", open ? "챗봇 닫기" : "챗봇 열기");
+      if (open) {
+        input.focus();
+        startHealthPoll();
+      } else {
+        stopHealthPoll();
+      }
+    }
+    fab.addEventListener("click", () => toggle());
+    closePad.addEventListener("click", () => toggle(false));
+    fontBtn.addEventListener("click", cycleFont);
+    applyFont(loadFont());
+
+    function addBubble(role, text) {
+      const row = document.createElement("div");
+      row.className = "row" + (role === "user" ? " me" : "");
+      const bubble = document.createElement("div");
+      bubble.className = "bubble " + (role === "user" ? "user" : "bot");
+      bubble.textContent = text;
+      row.appendChild(bubble);
+      msgs.appendChild(row);
+      msgs.scrollTop = msgs.scrollHeight;
+      return row;
+    }
+
+    function kindLabel(kind) {
+      if (kind === "create") return "등록";
+      if (kind === "update") return "적용";
+      if (kind === "delete") return "삭제";
+      return "확인";
+    }
+
+    function addPending(pending) {
+      const row = document.createElement("div");
+      row.className = "row";
+      const box = document.createElement("div");
+      box.className = "proposal";
+      box.innerHTML =
+        "<h3>확인 필요</h3>" +
+        '<div class="meta"></div>' +
+        (pending.yaml ? "<pre></pre>" : "") +
+        '<div class="acts"></div>';
+      box.querySelector(".meta").textContent = pending.summary || "";
+      if (pending.yaml) box.querySelector("pre").textContent = pending.yaml;
+      const acts = box.querySelector(".acts");
+      const go = document.createElement("button");
+      go.className = "btn go";
+      go.type = "button";
+      go.textContent = kindLabel(pending.kind);
+      const no = document.createElement("button");
+      no.className = "btn no";
+      no.type = "button";
+      no.textContent = "취소";
+      async function confirm(accept) {
+        go.disabled = true;
+        no.disabled = true;
+        try {
+          const res = await fetch("/api/automation_advisor/chat/confirm", {
+            method: "POST",
+            credentials: "same-origin",
+            headers: apiHeaders({ "Content-Type": "application/json" }),
+            body: JSON.stringify({ token: pending.token, accept }),
+          });
+          const data = await res.json();
+          addBubble("bot", data.message || (accept ? "완료" : "취소됨"));
+        } catch (err) {
+          addBubble("bot", "확인 요청 실패: " + err);
+          go.disabled = false;
+          no.disabled = false;
+        }
+      }
+      go.addEventListener("click", () => confirm(true));
+      no.addEventListener("click", () => confirm(false));
+      acts.appendChild(go);
+      acts.appendChild(no);
+      row.appendChild(box);
+      msgs.appendChild(row);
+      msgs.scrollTop = msgs.scrollHeight;
+    }
+
+    function setBusy(busy) {
+      input.disabled = busy;
+      sendBtn.disabled = busy;
+    }
+
+    async function send() {
+      const text = input.value.trim();
+      if (!text) return;
+      input.value = "";
+      addBubble("user", text);
+      setBusy(true);
+      const typing = document.createElement("div");
+      typing.className = "typing";
+      typing.textContent = "생각 중…";
+      msgs.appendChild(typing);
+      msgs.scrollTop = msgs.scrollHeight;
+      try {
+        const res = await fetch("/api/automation_advisor/chat", {
+          method: "POST",
+          credentials: "same-origin",
+          headers: apiHeaders({ "Content-Type": "application/json" }),
+          body: JSON.stringify({ session_id: sessionId(), message: text }),
+        });
+        typing.remove();
+        if (res.status === 401) {
+          addBubble("bot", "인증이 만료됐습니다. Home Assistant 페이지를 새로고침한 뒤 다시 시도해 주세요.");
+          statusPill.classList.remove("ok");
+          statusPill.classList.add("bad");
+          statusText.textContent = "토큰 만료";
+          return;
+        }
+        const data = await res.json();
+        if (data.error) {
+          addBubble("bot", data.error);
+          return;
+        }
+        if (data.reply) addBubble("bot", data.reply);
+        if (data.pending) addPending(data.pending);
+        void refreshStatus();
+      } catch (err) {
+        typing.remove();
+        addBubble("bot", "요청 실패: " + err);
+      } finally {
+        setBusy(false);
+        input.focus();
+      }
+    }
+
+    sendBtn.addEventListener("click", send);
+    input.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" && !e.shiftKey) {
+        e.preventDefault();
+        send();
+      }
+    });
+
+    addBubble(
+      "bot",
+      "추천, 자동화, 장비 상태, 로그를 물어보세요. 만들거나 지울 때는 확인을 한 번 받습니다."
+    );
+    // Poll as soon as the panel loads so status is ready before opening the pad.
+    startHealthPoll();
+  </script>
+  <script src="/api/automation_advisor/static/dashboard.js?v=0.2.27"></script>
+  <script>
+    if (window.AdvisorDashboard) {
+      window.AdvisorDashboard.start({
+        root: document.getElementById("dash-root"),
+        getAccessToken: typeof getAccessToken === "function" ? getAccessToken : null,
+        apiHeaders: typeof apiHeaders === "function" ? apiHeaders : null,
+      });
+    }
+  </script>
+</body>
+</html>

@@ -31,6 +31,10 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     entry.async_on_unload(entry.add_update_listener(_reload))
 
+    from .chat_http import async_setup_chat
+
+    await async_setup_chat(hass, coordinator)
+
     if not coordinator.suggestions and not coordinator.last_scan:
         await _notify(
             hass,
@@ -244,6 +248,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
 
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
+    from .chat_http import async_unload_chat
+
+    await async_unload_chat(hass)
     coordinator: AdvisorCoordinator | None = hass.data.get(DOMAIN, {}).get(entry.entry_id)
     if coordinator:
         await coordinator.async_unload()
