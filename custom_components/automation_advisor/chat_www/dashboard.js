@@ -15,14 +15,21 @@
         --term: #0a0f0c; --term-fg: #b7f5c8; --term-dim: #5f8a6c; --term-num: #7dffb3;
         color: #e8eef4;
         box-sizing: border-box;
-        display: block;
+        display: flex;
+        flex-direction: column;
         min-height: 100%;
         background: radial-gradient(1200px 500px at 10% -10%, #152433 0%, #0c1016 55%);
         font-family: "Instrument Sans", system-ui, sans-serif;
       }
+      .ad-shell *, .ad-shell *::before, .ad-shell *::after { box-sizing: border-box; }
+      .ad-top {
+        position: sticky; top: 0; z-index: 6;
+        background: rgba(8,11,15,.96);
+        border-bottom: 1px solid var(--line);
+      }
       .ad-hdr {
         display:flex; align-items:center; justify-content:space-between; gap:12px;
-        padding:14px 18px; border-bottom:1px solid var(--line); background:rgba(8,11,15,.85);
+        padding:14px 18px 8px;
       }
       .ad-brand { font-size:18px; font-weight:750; letter-spacing:-.03em; }
       .ad-sync { display:flex; align-items:center; gap:10px; color:var(--muted); font-size:12px; flex-wrap:wrap; }
@@ -36,14 +43,16 @@
       .ad-chip.dev { background:rgba(61,184,245,.14); color:var(--dev); }
       .ad-chip.auto { background:rgba(232,184,109,.14); color:var(--auto); }
       .ad-tabs {
-        display:flex; gap:4px; padding:10px 14px; border-bottom:1px solid var(--line); background:#10161e;
+        display:flex !important; gap:4px; padding:4px 14px 12px; background:transparent;
+        flex-wrap: wrap;
       }
       .ad-tab {
-        appearance:none; border:0; cursor:pointer; padding:8px 14px; border-radius:8px;
-        font-size:12px; font-weight:650; color:var(--muted); background:transparent;
+        appearance:none !important; border:0; cursor:pointer; padding:8px 14px; border-radius:8px;
+        font-size:12px !important; font-weight:650; color:#c5d0db !important;
+        background:#1b2430 !important; line-height:1.3; min-height:34px;
       }
-      .ad-tab:hover { background:rgba(255,255,255,.04); color:#e8eef4; }
-      .ad-tab.on { background:var(--panel2); color:#e8eef4; }
+      .ad-tab:hover { background:#243040 !important; color:#e8eef4 !important; }
+      .ad-tab.on { background:#243040 !important; color:#e8eef4 !important; }
       .ad-tab.on[data-kind=dev] { box-shadow:inset 0 -2px 0 var(--dev); }
       .ad-tab.on[data-kind=auto] { box-shadow:inset 0 -2px 0 var(--auto); }
       .ad-tab.on[data-kind=log] { box-shadow:inset 0 -2px 0 #7dffb3; }
@@ -52,8 +61,10 @@
         background:rgba(255,255,255,.08); font-size:10px;
       }
       .ad-body {
+        display: block !important;
         padding:16px 18px 96px;
-        min-height: 50vh;
+        min-height: 60vh;
+        flex: 1 0 auto;
       }
       .ad-panel { display:none; }
       .ad-panel.on { display:block; }
@@ -224,17 +235,19 @@
 
     root.innerHTML = `
       <div class="ad-shell">
-        <div class="ad-hdr">
-          <div class="ad-brand">Dashboard</div>
-          <div class="ad-sync" id="ad-sync">동기화 <b>—</b></div>
-        </div>
-        <div class="ad-tabs">
-          <button type="button" class="ad-tab on" data-kind="dev" data-tab="devices">기기 <span class="n" id="ad-n-dev">0</span></button>
-          <button type="button" class="ad-tab" data-kind="auto" data-tab="autos">자동화 <span class="n" id="ad-n-auto">0</span></button>
-          <button type="button" class="ad-tab" data-kind="log" data-tab="analysis">분석</button>
+        <div class="ad-top">
+          <div class="ad-hdr">
+            <div class="ad-brand">Dashboard</div>
+            <div class="ad-sync" id="ad-sync">동기화 <b>—</b></div>
+          </div>
+          <div class="ad-tabs" role="tablist" aria-label="Dashboard 탭">
+            <button type="button" class="ad-tab on" data-kind="dev" data-tab="devices">기기 <span class="n" id="ad-n-dev">0</span></button>
+            <button type="button" class="ad-tab" data-kind="auto" data-tab="autos">자동화 <span class="n" id="ad-n-auto">0</span></button>
+            <button type="button" class="ad-tab" data-kind="log" data-tab="analysis">분석</button>
+          </div>
         </div>
         <div class="ad-body">
-          <div class="ad-panel on" id="ad-panel-devices"></div>
+          <div class="ad-panel on" id="ad-panel-devices"><div class="ad-meta">기기 불러오는 중…</div></div>
           <div class="ad-panel" id="ad-panel-autos"></div>
           <div class="ad-panel" id="ad-panel-analysis"></div>
         </div>
@@ -299,6 +312,7 @@
     function renderSync() {
       const s = state.summary;
       const el = root.querySelector("#ad-sync");
+      if (!el) return;
       if (!s) {
         el.innerHTML = "동기화 <b>—</b>";
         return;
@@ -308,10 +322,14 @@
           ? `<span class="ad-chip warn">이상 ${s.anomaly_count}</span>`
           : `<span class="ad-chip ok">온라인</span>`;
       el.innerHTML = `${warn}<span>동기화 <b>${esc(relativeTime(s.synced_at))}</b></span><span>·</span><span>기기 ${s.device_count}</span>`;
-      root.querySelector("#ad-n-dev").textContent = String(s.device_count || 0);
-      root.querySelector("#ad-n-auto").textContent = String(
-        (state.autos && state.autos.length) || s.pending_count || 0
-      );
+      const nDev = root.querySelector("#ad-n-dev");
+      const nAuto = root.querySelector("#ad-n-auto");
+      if (nDev) nDev.textContent = String(s.device_count || 0);
+      if (nAuto) {
+        nAuto.textContent = String(
+          (state.autos && state.autos.length) || s.pending_count || 0
+        );
+      }
     }
 
     function renderDevices() {
@@ -576,12 +594,21 @@
         state.summary = await api("/api/automation_advisor/dashboard/summary");
         renderSync();
       } catch (err) {
-        root.querySelector("#ad-panel-devices").innerHTML =
-          `<div class="ad-err">${esc(err.message || err)}</div>`;
+        const panel = root.querySelector("#ad-panel-devices");
+        if (panel) {
+          panel.innerHTML = `<div class="ad-err">${esc(err.message || err)}</div>`;
+        }
         return;
       }
 
-      if (state.tab === "devices") renderDevices();
+      try {
+        if (state.tab === "devices") renderDevices();
+      } catch (err) {
+        const panel = root.querySelector("#ad-panel-devices");
+        if (panel) {
+          panel.innerHTML = `<div class="ad-err">${esc(err.message || err)}</div>`;
+        }
+      }
 
       try {
         const data = await api(

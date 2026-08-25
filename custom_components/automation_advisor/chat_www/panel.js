@@ -9,11 +9,13 @@ class AutomationAdvisorPanel extends HTMLElement {
     this._lastToken = null;
     this._hass = null;
     this._timer = null;
+    this._ro = null;
   }
 
   set hass(hass) {
     this._hass = hass;
     this._ensureFrame();
+    this._fitHost();
     this._syncToken(true);
   }
 
@@ -25,7 +27,6 @@ class AutomationAdvisorPanel extends HTMLElement {
   set panel(_panel) {}
 
   connectedCallback() {
-    // Fill HA panel content (percentage height alone often collapses).
     this.style.cssText = [
       "display:block",
       "position:relative",
@@ -37,14 +38,46 @@ class AutomationAdvisorPanel extends HTMLElement {
       "box-sizing:border-box",
     ].join(";");
     this._ensureFrame();
+    this._fitHost();
     this._syncToken(true);
     clearInterval(this._timer);
     this._timer = setInterval(() => this._syncToken(false), 20000);
+    if (typeof ResizeObserver !== "undefined") {
+      this._ro = new ResizeObserver(() => this._fitHost());
+      this._ro.observe(this);
+      if (this.parentElement) this._ro.observe(this.parentElement);
+    }
+    window.addEventListener("resize", this._onResize);
   }
 
   disconnectedCallback() {
     clearInterval(this._timer);
     this._timer = null;
+    if (this._ro) {
+      this._ro.disconnect();
+      this._ro = null;
+    }
+    window.removeEventListener("resize", this._onResize);
+  }
+
+  _onResize = () => {
+    this._fitHost();
+  };
+
+  _fitHost() {
+    const parentH =
+      (this.parentElement && this.parentElement.clientHeight) || 0;
+    const h = Math.max(
+      this.clientHeight || 0,
+      parentH,
+      (window.innerHeight || 800) - 56,
+      480
+    );
+    this.style.height = h + "px";
+    this.style.minHeight = h + "px";
+    if (this._iframe) {
+      this._iframe.style.height = h + "px";
+    }
   }
 
   _token() {
@@ -65,12 +98,11 @@ class AutomationAdvisorPanel extends HTMLElement {
     if (this._iframe) return;
     const iframe = document.createElement("iframe");
     iframe.title = "Dashboard";
+    iframe.setAttribute("scrolling", "yes");
     iframe.style.cssText =
       "border:0;position:absolute;inset:0;width:100%;height:100%;display:block;background:#07090c;";
     iframe.allow = "clipboard-write";
-    // Placeholder until hass token arrives
-    iframe.src =
-      "about:blank";
+    iframe.src = "about:blank";
     this._iframe = iframe;
     this.appendChild(iframe);
   }
@@ -91,7 +123,7 @@ class AutomationAdvisorPanel extends HTMLElement {
     this._lastToken = token;
     // Hash-only token keeps it out of access logs; /ui is no-cache.
     const url =
-      "/api/automation_advisor/ui?v=0.2.28#ha_token=" +
+      "/api/automation_advisor/ui?v=0.2.29#ha_token=" +
       encodeURIComponent(token);
     this._iframe.src = url;
   }

@@ -21,21 +21,30 @@
       --danger: #ff6b6b;
     }
     * { box-sizing: border-box; }
-    html, body { height: 100%; margin: 0; }
+    html, body {
+      height: 100%;
+      margin: 0;
+      overflow: hidden;
+    }
     body {
       font-family: "Instrument Sans", system-ui, sans-serif;
       background: #07090c;
       color: var(--text);
     }
     /* Inside HA panel iframe: hide mock rail (HA already has a sidebar). */
-    body.embedded .rail { display: none; }
-    body.embedded .shell { grid-template-columns: 1fr; }
+    body.embedded .rail { display: none !important; }
+    body.embedded .shell {
+      display: flex;
+      flex-direction: column;
+    }
     .shell {
       height: 100%;
+      min-height: 100%;
       display: grid;
       grid-template-columns: 72px 1fr;
       background: var(--ink);
       position: relative;
+      overflow: hidden;
     }
     .rail {
       background: #0a0e12;
@@ -58,21 +67,24 @@
       display: grid; place-items: center; font-size: 16px;
     }
     .dot.active { background: #123044; color: var(--ha); }
-    html, body { height: 100%; }
-    .shell { height: 100%; min-height: 100%; }
     .stage {
       position: relative;
       background: #10161c;
       min-width: 0;
       min-height: 0;
       height: 100%;
+      flex: 1;
       display: flex;
       flex-direction: column;
+      overflow: hidden;
     }
+    /* Flex child (not absolute) so HA iframe embedding cannot collapse the body. */
     #dash-root {
-      position: absolute;
-      inset: 0;
+      flex: 1 1 auto;
+      min-height: 0;
+      width: 100%;
       overflow: auto;
+      position: relative;
       z-index: 1;
       -webkit-overflow-scrolling: touch;
     }
@@ -729,7 +741,7 @@
     // Poll as soon as the panel loads so status is ready before opening the pad.
     startHealthPoll();
   </script>
-  <script src="/api/automation_advisor/static/dashboard.js?v=0.2.28"></script>
+  <script src="/api/automation_advisor/static/dashboard.js?v=0.2.29"></script>
   <script>
     if (window.AdvisorDashboard) {
       window.AdvisorDashboard.start({
