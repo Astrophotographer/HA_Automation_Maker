@@ -144,19 +144,19 @@
       .ad-devhead {
         display:flex; width:100%; align-items:flex-start; justify-content:space-between; gap:8px;
         appearance:none; border:0; background:transparent; color:inherit; cursor:pointer;
-        padding:0; text-align:left; font:inherit;
+        padding:0; text-align:left; font:inherit; list-style:none;
       }
-      .ad-devhead:focus-visible { outline:2px solid var(--dev); outline-offset:2px; border-radius:6px; }
+      .ad-devhead::-webkit-details-marker { display:none; }
       .ad-chev {
-        display:inline-block; width:10px; color:var(--muted); margin-right:4px;
-        transform:rotate(0deg); transition:transform .15s ease; font-size:10px;
+        display:inline-block; width:12px; color:var(--muted); margin-right:4px;
+        transform:rotate(0deg); transition:transform .15s ease; font-size:11px;
       }
-      .ad-card.dev.open .ad-chev { transform:rotate(90deg); }
+      details.ad-card.dev[open] .ad-chev { transform:rotate(90deg); }
       .ad-ents {
-        display:none; margin-top:10px; padding-top:10px;
+        display:flex; margin-top:10px; padding-top:10px;
         border-top:1px solid var(--line); flex-direction:column; gap:8px;
+        max-height:min(420px, 50vh); overflow:auto;
       }
-      .ad-card.dev.open .ad-ents { display:flex; }
       .ad-ent {
         display:flex; justify-content:space-between; align-items:flex-start; gap:8px;
         padding:6px 8px; border-radius:8px; background:rgba(255,255,255,.03);
@@ -257,7 +257,6 @@
       sub: "logs",
       includeDismissed: false,
       anomalyOnly: false,
-      openDevices: {},
       summary: null,
       autos: [],
       logs: null,
@@ -364,10 +363,6 @@
       }
     }
 
-    function deviceKey(d, idx) {
-      return String(d.device_id || d.entity_id || d.name || idx);
-    }
-
     function entityDotClass(ok, st) {
       if (!ok) return "warn";
       if (st === "off" || st === "closed") return "off";
@@ -392,6 +387,22 @@
       </div>`;
     }
 
+    function renderEntityRows(ents) {
+      let html = `<div class="ad-ents">`;
+      ents.forEach((e) => {
+        const ed = entityDotClass(e.ok, e.state);
+        html += `<div class="ad-ent">
+          <div>
+            <div class="ad-cname"><span class="ad-dot ${ed}"></span>${esc(e.name)}</div>
+            <div class="ad-meta">${esc(e.entity_id)} · 자동화 ${e.automation_count} · 추천 ${e.suggestion_count}</div>
+          </div>
+          <span class="ad-chip ${e.ok ? "ok" : "warn"}">${esc(e.state)}</span>
+        </div>`;
+      });
+      html += `</div>`;
+      return html;
+    }
+
     function renderDevices() {
       const panel = root.querySelector("#ad-panel-devices");
       const devices = (state.summary && state.summary.devices) || [];
@@ -408,7 +419,7 @@
       let html = `
         <div class="ad-toolbar">
           <div><div class="ad-title">연결된 기기</div>
-          <div class="ad-meta">물리 기기 단위 · 펼쳐서 엔티티 확인</div></div>
+          <div class="ad-meta">물리 기기 단위 · 하위 엔티티 표시</div></div>
           <label class="ad-tog">
             <button type="button" class="ad-sw ${state.anomalyOnly ? "on" : ""}" id="ad-anomaly-sw" aria-pressed="${state.anomalyOnly}"></button>
             이상기기만
@@ -427,37 +438,28 @@
         .sort()
         .forEach((area) => {
           html += `<div class="ad-room">${esc(area)}</div><div class="ad-grid">`;
-          byArea[area].forEach((d, idx) => {
-            const key = deviceKey(d, idx);
+          byArea[area].forEach((d) => {
             const ents = d.entities || [];
             const multi = ents.length > 1;
-            const open = multi && !!state.openDevices[key];
             const dot = entityDotClass(d.ok, d.state);
-            const chev = multi ? `<span class="ad-chev" aria-hidden="true">▶</span>` : "";
             const entLabel = multi ? ` · 엔티티 ${ents.length}` : "";
-            html += `<div class="ad-card dev ${multi ? "multi" : ""} ${open ? "open" : ""}" data-dev="${esc(key)}">
-              <button type="button" class="ad-devhead" data-toggle-dev="${esc(key)}" ${multi ? "" : "disabled"} aria-expanded="${open}">
-                <div>
-                  <div class="ad-cname">${chev}<span class="ad-dot ${dot}"></span>${esc(d.name)}</div>
-                  <div class="ad-meta">자동화 ${d.automation_count} · 추천 ${d.suggestion_count}${entLabel}</div>
-                </div>
-                <span class="ad-chip ${d.ok ? "ok" : "warn"}">${esc(d.state)}</span>
-              </button>`;
+            const headInner = `
+              <div>
+                <div class="ad-cname">${multi ? `<span class="ad-chev" aria-hidden="true">▶</span>` : ""}<span class="ad-dot ${dot}"></span>${esc(d.name)}</div>
+                <div class="ad-meta">자동화 ${d.automation_count} · 추천 ${d.suggestion_count}${entLabel}</div>
+              </div>
+              <span class="ad-chip ${d.ok ? "ok" : "warn"}">${esc(d.state)}</span>`;
             if (multi) {
-              html += `<div class="ad-ents">`;
-              ents.forEach((e) => {
-                const ed = entityDotClass(e.ok, e.state);
-                html += `<div class="ad-ent">
-                  <div>
-                    <div class="ad-cname"><span class="ad-dot ${ed}"></span>${esc(e.name)}</div>
-                    <div class="ad-meta">${esc(e.entity_id)} · 자동화 ${e.automation_count} · 추천 ${e.suggestion_count}</div>
-                  </div>
-                  <span class="ad-chip ${e.ok ? "ok" : "warn"}">${esc(e.state)}</span>
-                </div>`;
-              });
-              html += `</div>`;
+              // Default open so entities are visible without an extra click.
+              html += `<details class="ad-card dev multi" open>
+                <summary class="ad-devhead">${headInner}</summary>
+                ${renderEntityRows(ents)}
+              </details>`;
+            } else {
+              html += `<div class="ad-card dev">
+                <div class="ad-crow">${headInner}</div>
+              </div>`;
             }
-            html += `</div>`;
           });
           html += `</div>`;
         });
@@ -465,14 +467,6 @@
       panel.querySelector("#ad-anomaly-sw").addEventListener("click", () => {
         state.anomalyOnly = !state.anomalyOnly;
         renderDevices();
-      });
-      panel.querySelectorAll("[data-toggle-dev]").forEach((btn) => {
-        btn.addEventListener("click", () => {
-          const key = btn.getAttribute("data-toggle-dev");
-          if (!key || btn.disabled) return;
-          state.openDevices[key] = !state.openDevices[key];
-          renderDevices();
-        });
       });
     }
 
