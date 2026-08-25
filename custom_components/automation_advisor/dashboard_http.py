@@ -13,6 +13,7 @@ from homeassistant.core import HomeAssistant
 from .const import (
     DOMAIN,
     MIN_PATTERN_CONFIDENCE,
+    MIN_PATTERN_LIFT,
     MIN_PATTERN_SUPPORT,
     OBSERVE_SKIP_DOMAINS,
 )
@@ -21,6 +22,7 @@ from .dashboard_api import (
     build_log_lines,
     build_reasons,
     build_summary,
+    group_devices,
     list_automations,
     normalize_action,
 )
@@ -71,13 +73,13 @@ class DashboardRuntime:
     async def summary(self) -> dict[str, Any]:
         snaps = snapshot_inventory(self.hass)
         auto_c, sug_c = self._entity_link_counts()
-        devices: list[dict[str, Any]] = []
+        entity_rows: list[dict[str, Any]] = []
         for snap in snaps:
             if snap.domain in OBSERVE_SKIP_DOMAINS:
                 continue
             if snap.domain not in _DEVICE_DOMAINS:
                 continue
-            devices.append(
+            entity_rows.append(
                 build_device_row(
                     snap.entity_id,
                     snap.display_name or snap.friendly_name or snap.entity_id,
@@ -85,8 +87,11 @@ class DashboardRuntime:
                     snap.state,
                     auto_c.get(snap.entity_id, 0),
                     sug_c.get(snap.entity_id, 0),
+                    device_id=snap.device_id,
+                    device_name=snap.device_name,
                 )
             )
+        devices = group_devices(entity_rows)
         devices.sort(key=lambda d: (d["area"], d["name"]))
         return build_summary(
             synced_at=datetime.now(timezone.utc).isoformat(),
@@ -123,6 +128,7 @@ class DashboardRuntime:
             list(self.coordinator.suggestions),
             min_confidence=MIN_PATTERN_CONFIDENCE,
             min_support=MIN_PATTERN_SUPPORT,
+            min_lift=MIN_PATTERN_LIFT,
         )
 
     async def action(self, kind: str, suggestion_id: str | None) -> dict[str, Any]:

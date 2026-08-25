@@ -128,11 +128,41 @@
       .ad-subtab.on { background:var(--panel2); color:#e8eef4; }
       .ad-sub { display:none; }
       .ad-sub.on { display:block; }
-      .ad-bar { height:8px; border-radius:999px; background:#243040; overflow:hidden; margin-top:8px; }
+      .ad-bar { height:8px; border-radius:999px; background:#243040; overflow:hidden; margin-top:6px; }
       .ad-bar > i {
         display:block; height:100%; border-radius:999px;
         background:linear-gradient(90deg,#9b8cff,var(--auto));
       }
+      .ad-bar.ok > i { background:linear-gradient(90deg,#2f9e6b,var(--ok)); }
+      .ad-bar.warn > i { background:linear-gradient(90deg,#c96a45,var(--warn)); }
+      .ad-metrics { display:flex; flex-direction:column; gap:10px; margin-top:10px; }
+      .ad-metric { font-size:11px; color:var(--muted); }
+      .ad-metric .ad-mrow {
+        display:flex; justify-content:space-between; align-items:baseline; gap:8px; margin-bottom:2px;
+      }
+      .ad-metric .ad-mval { color:#e8eef4; font-weight:700; font-variant-numeric:tabular-nums; }
+      .ad-devhead {
+        display:flex; width:100%; align-items:flex-start; justify-content:space-between; gap:8px;
+        appearance:none; border:0; background:transparent; color:inherit; cursor:pointer;
+        padding:0; text-align:left; font:inherit;
+      }
+      .ad-devhead:focus-visible { outline:2px solid var(--dev); outline-offset:2px; border-radius:6px; }
+      .ad-chev {
+        display:inline-block; width:10px; color:var(--muted); margin-right:4px;
+        transform:rotate(0deg); transition:transform .15s ease; font-size:10px;
+      }
+      .ad-card.dev.open .ad-chev { transform:rotate(90deg); }
+      .ad-ents {
+        display:none; margin-top:10px; padding-top:10px;
+        border-top:1px solid var(--line); flex-direction:column; gap:8px;
+      }
+      .ad-card.dev.open .ad-ents { display:flex; }
+      .ad-ent {
+        display:flex; justify-content:space-between; align-items:flex-start; gap:8px;
+        padding:6px 8px; border-radius:8px; background:rgba(255,255,255,.03);
+      }
+      .ad-ent .ad-cname { font-size:12px; font-weight:650; margin-bottom:2px; }
+      .ad-card.dev.multi { cursor:default; }
       .ad-term {
         background:var(--term); border:1px solid rgba(125,255,179,.18); border-radius:10px; overflow:hidden;
       }
@@ -226,6 +256,8 @@
       tab: "devices",
       sub: "logs",
       includeDismissed: false,
+      anomalyOnly: false,
+      openDevices: {},
       summary: null,
       autos: [],
       logs: null,
@@ -332,44 +364,116 @@
       }
     }
 
+    function deviceKey(d, idx) {
+      return String(d.device_id || d.entity_id || d.name || idx);
+    }
+
+    function entityDotClass(ok, st) {
+      if (!ok) return "warn";
+      if (st === "off" || st === "closed") return "off";
+      return "";
+    }
+
+    function metricBar(label, value, threshold, formatFn) {
+      if (value == null || !Number.isFinite(value)) {
+        return `<div class="ad-metric">
+          <div class="ad-mrow"><span>${esc(label)}</span><span class="ad-mval">—</span></div>
+          <div class="ad-bar"><i style="width:0%"></i></div>
+        </div>`;
+      }
+      const thr = threshold == null || !Number.isFinite(threshold) || threshold <= 0 ? 1 : threshold;
+      const pct = Math.max(0, Math.min(100, Math.round((value / thr) * 100)));
+      const pass = value >= thr;
+      const shown = formatFn ? formatFn(value) : String(value);
+      return `<div class="ad-metric">
+        <div class="ad-mrow"><span>${esc(label)} <span style="opacity:.7">≥ ${esc(formatFn ? formatFn(thr) : thr)}</span></span>
+        <span class="ad-mval">${esc(shown)}</span></div>
+        <div class="ad-bar ${pass ? "ok" : "warn"}"><i style="width:${pct}%"></i></div>
+      </div>`;
+    }
+
     function renderDevices() {
       const panel = root.querySelector("#ad-panel-devices");
       const devices = (state.summary && state.summary.devices) || [];
+      const visible = state.anomalyOnly ? devices.filter((d) => !d.ok) : devices;
       if (!devices.length) {
         panel.innerHTML = `<div class="ad-meta">표시할 기기가 없습니다.</div>`;
         return;
       }
       const byArea = {};
-      devices.forEach((d) => {
+      visible.forEach((d) => {
         const a = d.area || "기타";
         (byArea[a] || (byArea[a] = [])).push(d);
       });
       let html = `
         <div class="ad-toolbar">
           <div><div class="ad-title">연결된 기기</div>
-          <div class="ad-meta">방별 목록 · 상태 · 연결된 자동화 수</div></div>
+          <div class="ad-meta">물리 기기 단위 · 펼쳐서 엔티티 확인</div></div>
+          <label class="ad-tog">
+            <button type="button" class="ad-sw ${state.anomalyOnly ? "on" : ""}" id="ad-anomaly-sw" aria-pressed="${state.anomalyOnly}"></button>
+            이상기기만
+          </label>
         </div>`;
+      if (!visible.length) {
+        html += `<div class="ad-meta">이상 상태인 기기가 없습니다.</div>`;
+        panel.innerHTML = html;
+        panel.querySelector("#ad-anomaly-sw").addEventListener("click", () => {
+          state.anomalyOnly = !state.anomalyOnly;
+          renderDevices();
+        });
+        return;
+      }
       Object.keys(byArea)
         .sort()
         .forEach((area) => {
           html += `<div class="ad-room">${esc(area)}</div><div class="ad-grid">`;
-          byArea[area].forEach((d) => {
-            const dot = d.ok
-              ? d.state === "off" || d.state === "closed"
-                ? "off"
-                : ""
-              : "warn";
-            html += `<div class="ad-card dev">
-              <div class="ad-crow">
-                <div class="ad-cname"><span class="ad-dot ${dot}"></span>${esc(d.name)}</div>
+          byArea[area].forEach((d, idx) => {
+            const key = deviceKey(d, idx);
+            const ents = d.entities || [];
+            const multi = ents.length > 1;
+            const open = multi && !!state.openDevices[key];
+            const dot = entityDotClass(d.ok, d.state);
+            const chev = multi ? `<span class="ad-chev" aria-hidden="true">▶</span>` : "";
+            const entLabel = multi ? ` · 엔티티 ${ents.length}` : "";
+            html += `<div class="ad-card dev ${multi ? "multi" : ""} ${open ? "open" : ""}" data-dev="${esc(key)}">
+              <button type="button" class="ad-devhead" data-toggle-dev="${esc(key)}" ${multi ? "" : "disabled"} aria-expanded="${open}">
+                <div>
+                  <div class="ad-cname">${chev}<span class="ad-dot ${dot}"></span>${esc(d.name)}</div>
+                  <div class="ad-meta">자동화 ${d.automation_count} · 추천 ${d.suggestion_count}${entLabel}</div>
+                </div>
                 <span class="ad-chip ${d.ok ? "ok" : "warn"}">${esc(d.state)}</span>
-              </div>
-              <div class="ad-meta">자동화 ${d.automation_count} · 추천 ${d.suggestion_count}</div>
-            </div>`;
+              </button>`;
+            if (multi) {
+              html += `<div class="ad-ents">`;
+              ents.forEach((e) => {
+                const ed = entityDotClass(e.ok, e.state);
+                html += `<div class="ad-ent">
+                  <div>
+                    <div class="ad-cname"><span class="ad-dot ${ed}"></span>${esc(e.name)}</div>
+                    <div class="ad-meta">${esc(e.entity_id)} · 자동화 ${e.automation_count} · 추천 ${e.suggestion_count}</div>
+                  </div>
+                  <span class="ad-chip ${e.ok ? "ok" : "warn"}">${esc(e.state)}</span>
+                </div>`;
+              });
+              html += `</div>`;
+            }
+            html += `</div>`;
           });
           html += `</div>`;
         });
       panel.innerHTML = html;
+      panel.querySelector("#ad-anomaly-sw").addEventListener("click", () => {
+        state.anomalyOnly = !state.anomalyOnly;
+        renderDevices();
+      });
+      panel.querySelectorAll("[data-toggle-dev]").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          const key = btn.getAttribute("data-toggle-dev");
+          if (!key || btn.disabled) return;
+          state.openDevices[key] = !state.openDevices[key];
+          renderDevices();
+        });
+      });
     }
 
     function renderAutos() {
@@ -489,20 +593,33 @@
       const reasonEl = panel.querySelector("#ad-sub-reasons");
       const thr = (reasons && reasons.thresholds) || {};
       const items = (reasons && reasons.items) || [];
-      let rh = `<div class="ad-meta" style="margin-bottom:8px">임계 confidence ≥ ${esc(thr.min_confidence)} · support ≥ ${esc(thr.min_support)}</div><div class="ad-list">`;
+      const minConf = typeof thr.min_confidence === "number" ? thr.min_confidence : 0.5;
+      const minSup = typeof thr.min_support === "number" ? thr.min_support : 3;
+      const minLift = typeof thr.min_lift === "number" ? thr.min_lift : 1.2;
+      let rh = `<div class="ad-meta" style="margin-bottom:8px">임계 confidence ≥ ${esc(minConf)} · support ≥ ${esc(minSup)} · lift ≥ ${esc(minLift)}</div><div class="ad-list">`;
       if (!items.length) rh += `<div class="ad-meta">근거 항목이 없습니다.</div>`;
       items.forEach((it) => {
-        const score = typeof it.score === "number" ? it.score : null;
-        const pct = score == null ? 0 : Math.round(score * 100);
+        const conf =
+          typeof it.confidence === "number"
+            ? it.confidence
+            : typeof it.score === "number"
+              ? it.score
+              : null;
+        const support = typeof it.support === "number" ? it.support : null;
+        const lift = typeof it.lift === "number" ? it.lift : null;
         rh += `<div class="ad-card reason">
           <div class="ad-crow">
             <div>
               <div class="ad-cname">${esc(it.title)}</div>
               <div class="ad-meta">${esc(it.explanation || "")}</div>
             </div>
-            <span class="ad-chip ${it.above_threshold ? "ok" : "warn"}">${score == null ? "—" : score.toFixed(2)}</span>
+            <span class="ad-chip ${it.above_threshold ? "ok" : "warn"}">${it.above_threshold ? "통과" : "미달"}</span>
           </div>
-          <div class="ad-bar"><i style="width:${pct}%"></i></div>
+          <div class="ad-metrics">
+            ${metricBar("support", support, minSup, (v) => String(Math.round(v)))}
+            ${metricBar("confidence", conf, minConf, (v) => v.toFixed(2))}
+            ${metricBar("lift", lift, minLift, (v) => v.toFixed(2))}
+          </div>
         </div>`;
       });
       rh += `</div>`;

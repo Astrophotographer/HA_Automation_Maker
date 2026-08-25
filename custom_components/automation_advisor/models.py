@@ -13,6 +13,8 @@ class EntitySnap:
     state: str
     friendly_name: str
     display_name: str = ""
+    device_id: str | None = None
+    device_name: str | None = None
     attributes: dict = field(default_factory=dict, compare=False)
 
 

@@ -295,6 +295,9 @@ class EventStoreTests(unittest.TestCase):
             rows = store.fetch_since(7)
             self.assertEqual(len(rows), 1)
             self.assertEqual(rows[0].entity_id, "light.a")
+            recent = store.fetch_recent(10)
+            self.assertEqual(len(recent), 1)
+            self.assertEqual(recent[0].entity_id, "light.a")
 
     def test_insert_if_new_dedupes(self) -> None:
         import tempfile

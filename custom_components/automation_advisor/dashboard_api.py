@@ -20,6 +20,18 @@ _ACTIONS = frozenset(
     }
 )
 
+# Prefer these domains when picking a representative state for a device group.
+_PRIMARY_DOMAINS = (
+    "light",
+    "switch",
+    "climate",
+    "cover",
+    "fan",
+    "media_player",
+    "lock",
+    "binary_sensor",
+)
+
 
 def build_device_row(
     entity_id: str,
@@ -28,6 +40,9 @@ def build_device_row(
     state: str,
     automation_count: int,
     suggestion_count: int,
+    *,
+    device_id: str | None = None,
+    device_name: str | None = None,
 ) -> dict[str, Any]:
     st = "" if state is None else str(state)
     return {
@@ -38,7 +53,69 @@ def build_device_row(
         "ok": st.casefold() not in _BAD_STATES,
         "automation_count": int(automation_count),
         "suggestion_count": int(suggestion_count),
+        "device_id": device_id,
+        "device_name": device_name,
     }
+
+
+def _entity_sort_key(row: dict[str, Any]) -> tuple[int, str]:
+    domain = str(row.get("entity_id") or "").split(".", 1)[0]
+    try:
+        rank = _PRIMARY_DOMAINS.index(domain)
+    except ValueError:
+        rank = len(_PRIMARY_DOMAINS)
+    return (rank, str(row.get("name") or row.get("entity_id") or ""))
+
+
+def group_devices(entity_rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Collapse entity rows into HA device groups (one card per physical device)."""
+    buckets: dict[str, list[dict[str, Any]]] = {}
+    order: list[str] = []
+    for row in entity_rows:
+        did = row.get("device_id")
+        key = str(did) if did else f"entity:{row.get('entity_id')}"
+        if key not in buckets:
+            buckets[key] = []
+            order.append(key)
+        buckets[key].append(row)
+
+    devices: list[dict[str, Any]] = []
+    for key in order:
+        ents = sorted(buckets[key], key=_entity_sort_key)
+        primary = ents[0]
+        ok = all(bool(e.get("ok", True)) for e in ents)
+        bad = next((e for e in ents if not e.get("ok", True)), None)
+        state = str((bad or primary).get("state") or "")
+        device_name = next(
+            (str(e["device_name"]).strip() for e in ents if e.get("device_name")),
+            None,
+        )
+        name = device_name or str(primary.get("name") or primary.get("entity_id") or key)
+        area = str(primary.get("area") or "기타")
+        devices.append(
+            {
+                "device_id": primary.get("device_id"),
+                "name": name,
+                "area": area,
+                "state": state,
+                "ok": ok,
+                "automation_count": sum(int(e.get("automation_count") or 0) for e in ents),
+                "suggestion_count": sum(int(e.get("suggestion_count") or 0) for e in ents),
+                "entity_count": len(ents),
+                "entities": [
+                    {
+                        "entity_id": e.get("entity_id"),
+                        "name": e.get("name"),
+                        "state": e.get("state"),
+                        "ok": bool(e.get("ok", True)),
+                        "automation_count": int(e.get("automation_count") or 0),
+                        "suggestion_count": int(e.get("suggestion_count") or 0),
+                    }
+                    for e in ents
+                ],
+            }
+        )
+    return devices
 
 
 def build_summary(
@@ -123,31 +200,47 @@ def build_log_lines(
     return lines
 
 
+def _as_float(value: Any) -> float | None:
+    if value is None:
+        return None
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _as_int(value: Any) -> int | None:
+    if value is None:
+        return None
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return None
+
+
 def build_reasons(
     suggestions: list[dict[str, Any]],
     *,
     min_confidence: float,
     min_support: int,
+    min_lift: float = 1.2,
 ) -> dict[str, Any]:
     items: list[dict[str, Any]] = []
     for s in suggestions:
         status = str(s.get("status") or "")
         if status not in {"pending", "previewed", "deployed", "dismissed"}:
             continue
-        score = None
-        if s.get("confidence") is not None:
-            try:
-                score = float(s["confidence"])
-            except (TypeError, ValueError):
-                score = None
-        support = s.get("support")
-        try:
-            support_n = int(support) if support is not None else None
-        except (TypeError, ValueError):
-            support_n = None
-        above = False
-        if score is not None:
-            above = score >= float(min_confidence)
+        confidence = _as_float(s.get("confidence"))
+        support_n = _as_int(s.get("support"))
+        lift = _as_float(s.get("lift"))
+        checks: list[bool] = []
+        if confidence is not None:
+            checks.append(confidence >= float(min_confidence))
+        if support_n is not None:
+            checks.append(support_n >= int(min_support))
+        if lift is not None:
+            checks.append(lift >= float(min_lift))
+        above = all(checks) if checks else True
         items.append(
             {
                 "id": s.get("id"),
@@ -157,8 +250,10 @@ def build_reasons(
                 "explanation": str(s.get("behavior") or s.get("explanation") or "")[
                     :240
                 ],
-                "score": score,
+                "score": confidence,
+                "confidence": confidence,
                 "support": support_n,
+                "lift": lift,
                 "above_threshold": above,
             }
         )
@@ -166,6 +261,7 @@ def build_reasons(
         "thresholds": {
             "min_confidence": float(min_confidence),
             "min_support": int(min_support),
+            "min_lift": float(min_lift),
         },
         "items": items,
     }

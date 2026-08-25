@@ -14,6 +14,7 @@ from automation_advisor.dashboard_api import (  # noqa: E402
     build_log_lines,
     build_reasons,
     build_summary,
+    group_devices,
     list_automations,
     normalize_action,
 )
@@ -31,6 +32,66 @@ class DeviceRowTests(unittest.TestCase):
         self.assertIs(row["ok"], True)
         self.assertEqual(row["automation_count"], 2)
         self.assertEqual(row["suggestion_count"], 1)
+
+
+class GroupDevicesTests(unittest.TestCase):
+    def test_groups_by_device_id(self) -> None:
+        rows = [
+            build_device_row(
+                "switch.plug",
+                "플러그",
+                "거실",
+                "on",
+                1,
+                0,
+                device_id="dev1",
+                device_name="스마트플러그",
+            ),
+            build_device_row(
+                "sensor.plug_power",
+                "전력",
+                "거실",
+                "12",
+                0,
+                1,
+                device_id="dev1",
+                device_name="스마트플러그",
+            ),
+            build_device_row("light.other", "다른등", "침실", "off", 0, 0),
+        ]
+        # sensor domain is not in primary list — still groups; switch preferred as state
+        grouped = group_devices(rows)
+        self.assertEqual(len(grouped), 2)
+        plug = next(d for d in grouped if d["device_id"] == "dev1")
+        self.assertEqual(plug["name"], "스마트플러그")
+        self.assertEqual(plug["entity_count"], 2)
+        self.assertEqual(plug["automation_count"], 1)
+        self.assertEqual(plug["suggestion_count"], 1)
+        self.assertEqual(len(plug["entities"]), 2)
+        solo = next(d for d in grouped if d["device_id"] is None)
+        self.assertEqual(solo["entity_count"], 1)
+        self.assertEqual(solo["name"], "다른등")
+
+    def test_group_ok_false_if_any_entity_bad(self) -> None:
+        rows = [
+            build_device_row(
+                "light.a", "A", "거실", "on", 0, 0, device_id="d", device_name="램프"
+            ),
+            build_device_row(
+                "switch.a",
+                "B",
+                "거실",
+                "unavailable",
+                0,
+                0,
+                device_id="d",
+                device_name="램프",
+            ),
+        ]
+        grouped = group_devices(rows)
+        self.assertEqual(len(grouped), 1)
+        self.assertIs(grouped[0]["ok"], False)
+        self.assertEqual(grouped[0]["state"], "unavailable")
 
 
 class SummaryTests(unittest.TestCase):
@@ -94,15 +155,39 @@ class ReasonsTests(unittest.TestCase):
                     "source": "habit",
                     "confidence": 0.82,
                     "support": 5,
+                    "lift": 1.5,
                     "explanation": "반복",
                 }
             ],
             min_confidence=0.75,
             min_support=3,
+            min_lift=1.2,
         )
         self.assertEqual(r["thresholds"]["min_confidence"], 0.75)
+        self.assertEqual(r["thresholds"]["min_lift"], 1.2)
         self.assertEqual(r["items"][0]["score"], 0.82)
+        self.assertEqual(r["items"][0]["confidence"], 0.82)
+        self.assertEqual(r["items"][0]["support"], 5)
+        self.assertEqual(r["items"][0]["lift"], 1.5)
         self.assertIs(r["items"][0]["above_threshold"], True)
+
+    def test_below_lift(self) -> None:
+        r = build_reasons(
+            [
+                {
+                    "id": "1",
+                    "title": "T",
+                    "status": "pending",
+                    "confidence": 0.9,
+                    "support": 10,
+                    "lift": 1.0,
+                }
+            ],
+            min_confidence=0.5,
+            min_support=3,
+            min_lift=1.2,
+        )
+        self.assertIs(r["items"][0]["above_threshold"], False)
 
 
 class ActionNormalizeTests(unittest.TestCase):

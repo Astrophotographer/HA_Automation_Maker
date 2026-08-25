@@ -342,10 +342,10 @@ async def async_setup_chat(hass: HomeAssistant, coordinator: Any) -> None:
         webcomponent_name="automation-advisor-panel",
         sidebar_title=PANEL_TITLE,
         sidebar_icon=PANEL_ICON,
-        module_url=f"{STATIC_URL}/panel.js?v=0.2.29",
+        module_url=f"{STATIC_URL}/panel.js?v=0.2.30",
         embed_iframe=False,
         require_admin=True,
-        config={"version": "0.2.29"},
+        config={"version": "0.2.30"},
     )
 
     from .dashboard_http import async_setup_dashboard

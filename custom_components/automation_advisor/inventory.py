@@ -155,6 +155,12 @@ def snapshot_inventory(hass: HomeAssistant) -> list[EntitySnap]:
             device_class = state.attributes.get("device_class")
 
         full_name = names.get(state.entity_id) or state.entity_id
+        device_id = entry.device_id if entry is not None else None
+        device_name = None
+        if device is not None:
+            raw = device.name_by_user or device.name
+            if raw:
+                device_name = str(raw).strip() or None
         snaps.append(
             EntitySnap(
                 entity_id=state.entity_id,
@@ -171,6 +177,8 @@ def snapshot_inventory(hass: HomeAssistant) -> list[EntitySnap]:
                     area_name=area_name,
                     full_name=full_name,
                 ),
+                device_id=device_id,
+                device_name=device_name,
                 attributes=dict(state.attributes),
             )
         )
