@@ -13,7 +13,10 @@
         --dev: #3db8f5; --auto: #e8b86d; --ok: #3dd68c; --warn: #ff8f6b; --danger: #ff6b7a;
         --panel: #151c25; --panel2: #1b2430; --line: rgba(255,255,255,.1); --muted: #8794a3;
         --term: #0a0f0c; --term-fg: #b7f5c8; --term-dim: #5f8a6c; --term-num: #7dffb3;
-        color: #e8eef4; min-height: 100%; display: flex; flex-direction: column;
+        color: #e8eef4;
+        box-sizing: border-box;
+        display: block;
+        min-height: 100%;
         background: radial-gradient(1200px 500px at 10% -10%, #152433 0%, #0c1016 55%);
         font-family: "Instrument Sans", system-ui, sans-serif;
       }
@@ -48,7 +51,10 @@
         margin-left:6px; padding:1px 6px; border-radius:999px;
         background:rgba(255,255,255,.08); font-size:10px;
       }
-      .ad-body { padding:16px 18px 88px; flex:1; }
+      .ad-body {
+        padding:16px 18px 96px;
+        min-height: 50vh;
+      }
       .ad-panel { display:none; }
       .ad-panel.on { display:block; }
       .ad-toolbar {

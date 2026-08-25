@@ -91,7 +91,7 @@ class AutomationAdvisorPanel extends HTMLElement {
     this._lastToken = token;
     // Hash-only token keeps it out of access logs; /ui is no-cache.
     const url =
-      "/api/automation_advisor/ui?v=0.2.26#ha_token=" +
+      "/api/automation_advisor/ui?v=0.2.28#ha_token=" +
       encodeURIComponent(token);
     this._iframe.src = url;
   }

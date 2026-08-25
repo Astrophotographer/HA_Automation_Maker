@@ -58,13 +58,23 @@
       display: grid; place-items: center; font-size: 16px;
     }
     .dot.active { background: #123044; color: var(--ha); }
-    .stage { position: relative; background: #10161c; min-width: 0; display: flex; flex-direction: column; }
-    #dash-root {
-      flex: 1;
-      min-height: 0;
-      overflow: auto;
+    html, body { height: 100%; }
+    .shell { height: 100%; min-height: 100%; }
+    .stage {
       position: relative;
+      background: #10161c;
+      min-width: 0;
+      min-height: 0;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+    }
+    #dash-root {
+      position: absolute;
+      inset: 0;
+      overflow: auto;
       z-index: 1;
+      -webkit-overflow-scrolling: touch;
     }
     .topbar {
       height: 52px; display: flex; align-items: center; justify-content: space-between;
@@ -719,7 +729,7 @@
     // Poll as soon as the panel loads so status is ready before opening the pad.
     startHealthPoll();
   </script>
-  <script src="/api/automation_advisor/static/dashboard.js?v=0.2.27"></script>
+  <script src="/api/automation_advisor/static/dashboard.js?v=0.2.28"></script>
   <script>
     if (window.AdvisorDashboard) {
       window.AdvisorDashboard.start({
