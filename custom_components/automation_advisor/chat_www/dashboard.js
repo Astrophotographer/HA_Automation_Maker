@@ -3,7 +3,7 @@
  */
 (function () {
   const STYLE_ID = "advisor-dashboard-style";
-  const STYLE_VER = "0.2.36";
+  const STYLE_VER = "0.2.37";
 
   function injectStyles() {
     let el = document.getElementById(STYLE_ID);

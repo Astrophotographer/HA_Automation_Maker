@@ -1,6 +1,6 @@
 /**
- * Legacy panel entry — kept for browsers that cached an older module_url.
- * New installs load advisor-panel.js instead (see chat_http.py).
+ * Custom HA panel host for Advisor UI.
+ * Fills the HA content area and injects a live access token into the iframe.
  */
 const ADVISOR_PANEL_UI_VER = "0.2.37";
 
@@ -123,6 +123,7 @@ class AutomationAdvisorPanel extends HTMLElement {
       return;
     }
     this._lastToken = token;
+    // Hash-only token keeps it out of access logs; /ui is no-cache.
     const url =
       "/api/automation_advisor/ui?v=" +
       ADVISOR_PANEL_UI_VER +

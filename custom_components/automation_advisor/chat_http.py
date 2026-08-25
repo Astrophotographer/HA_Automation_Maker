@@ -17,7 +17,7 @@ from .chat_agent import ChatAgent
 from .chat_llm import chat_completions, probe_llm_status, resolve_llm_endpoint
 from .chat_pending import PendingStore
 from .chat_yaml import assert_automation_safe
-from .const import DOMAIN
+from .const import DOMAIN, VERSION
 from .inventory import build_entity_display_names
 
 _LOGGER = logging.getLogger(__name__)
@@ -342,10 +342,10 @@ async def async_setup_chat(hass: HomeAssistant, coordinator: Any) -> None:
         webcomponent_name="automation-advisor-panel",
         sidebar_title=PANEL_TITLE,
         sidebar_icon=PANEL_ICON,
-        module_url=f"{STATIC_URL}/panel.js?v=0.2.36",
+        module_url=f"{STATIC_URL}/advisor-panel.js?v={VERSION}",
         embed_iframe=False,
         require_admin=True,
-        config={"version": "0.2.36"},
+        config={"version": VERSION},
     )
 
     from .dashboard_http import async_setup_dashboard
