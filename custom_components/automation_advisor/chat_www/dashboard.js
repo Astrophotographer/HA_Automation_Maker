@@ -3,7 +3,7 @@
  */
 (function () {
   const STYLE_ID = "advisor-dashboard-style";
-  const STYLE_VER = "0.2.34";
+  const STYLE_VER = "0.2.35";
 
   function injectStyles() {
     let el = document.getElementById(STYLE_ID);
@@ -134,14 +134,14 @@
       .ad-subtab.on { background:var(--panel2); color:#e8eef4; }
       .ad-sub { display:none; }
       .ad-sub.on { display:block; }
-      .ad-bar { height:8px; border-radius:999px; background:#243040; overflow:hidden; margin-top:6px; }
+      .ad-bar { height:10px; border-radius:999px; background:#243040; overflow:hidden; margin-top:6px; }
       .ad-bar > .ad-fill {
-        display:block; height:100%; border-radius:999px;
+        display:block !important; height:100%; min-height:10px; border-radius:999px;
         background:linear-gradient(90deg,#9b8cff,var(--auto));
       }
       .ad-bar.ok > .ad-fill { background:linear-gradient(90deg,#2f9e6b,var(--ok)); }
       .ad-bar.warn > .ad-fill { background:linear-gradient(90deg,#c96a45,var(--warn)); }
-      .ad-metrics { display:flex; flex-direction:column; gap:10px; margin-top:10px; }
+      .ad-metrics { display:flex !important; flex-direction:column; gap:10px; margin-top:10px; }
       .ad-metric { font-size:11px; color:var(--muted); }
       .ad-metric .ad-mrow {
         display:flex; justify-content:space-between; align-items:baseline; gap:8px; margin-bottom:2px;
@@ -634,11 +634,12 @@
       const catalogOnly = items.filter((it) => !metricItems.includes(it));
       let rh = thresholdLegend(minConf, minSup, minLift, habit);
       rh += `<div class="ad-list">`;
-      if (!metricItems.length && !catalogOnly.length) {
-        rh += `<div class="ad-meta">근거 항목이 없습니다. 로그 분석 · 스캔을 실행해 보세요.</div>`;
-      }
-      if (!metricItems.length && catalogOnly.length) {
-        rh += `<div class="ad-meta" style="margin-bottom:8px">카탈로그 추천 ${catalogOnly.length}개는 패턴 지표(support/confidence/lift)가 없습니다. 습관 패턴이 쌓이면 아래에 바가 채워집니다.</div>`;
+      if (!items.length) {
+        rh += `<div class="ad-meta">근거 항목이 없습니다. «로그 분석 · 스캔»을 실행해 보세요.</div>`;
+      } else if (!metricItems.length) {
+        rh += `<div class="ad-meta" style="margin-bottom:8px">카탈로그 추천 ${catalogOnly.length}개 · 습관 패턴 지표가 아직 없습니다. 위에서 «로그 분석 · 스캔»을 눌러 주세요.</div>`;
+      } else {
+        rh += `<div class="ad-meta" style="margin-bottom:8px">support / confidence / lift 비교 (상위 ${metricItems.length}개)</div>`;
       }
       metricItems.forEach((it) => {
         const conf =

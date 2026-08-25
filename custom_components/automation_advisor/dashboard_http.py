@@ -123,8 +123,12 @@ class DashboardRuntime:
             "lines": lines,
         }
 
-    def reasons(self) -> dict[str, Any]:
+    async def reasons(self) -> dict[str, Any]:
         coord = self.coordinator
+        try:
+            await coord.async_ensure_habit_preview()
+        except Exception:  # noqa: BLE001
+            _LOGGER.exception("habit preview refresh failed")
         return build_reasons(
             list(coord.suggestions),
             min_confidence=MIN_PATTERN_CONFIDENCE,
@@ -237,7 +241,7 @@ class DashboardReasonsView(HomeAssistantView):
 
     async def get(self, request: web.Request) -> web.Response:
         hass: HomeAssistant = request.app["hass"]
-        return self.json(_runtime(hass).reasons())
+        return self.json(await _runtime(hass).reasons())
 
 
 class DashboardActionView(HomeAssistantView):

@@ -149,7 +149,42 @@ class AdvisorCoordinator:
             "patterns": pattern_count if pattern_count is not None else self.habit_stats.get("patterns", 0),
             "ready": span >= min_days and events > 0,
             "min_observe_days": min_days,
+            "preview_count": len(getattr(self, "habit_preview", None) or []),
         }
+
+    async def async_ensure_habit_preview(self) -> None:
+        """Rebuild threshold-tab preview from the local event store if empty."""
+        if not self._opt(CONF_HABIT_LEARNING, DEFAULT_HABIT_LEARNING):
+            self.habit_preview = []
+            return
+        if self.habit_preview:
+            return
+        min_days = int(self._opt(CONF_MIN_OBSERVE_DAYS, DEFAULT_MIN_OBSERVE_DAYS))
+        lookback = max(min_days, EVENT_RETENTION_DAYS)
+        events = await self.hass.async_add_executor_job(
+            self._event_store.fetch_since, lookback
+        )
+        patterns = await self.hass.async_add_executor_job(discover_patterns, events)
+        ranked = sorted(
+            patterns,
+            key=lambda p: (p.lift, p.confidence, p.support),
+            reverse=True,
+        )[:20]
+        self.habit_preview = [
+            {
+                "title": p.title,
+                "explanation": p.explanation,
+                "support": p.support,
+                "confidence": p.confidence,
+                "lift": p.lift,
+                "source": "habit_preview",
+                "status": "preview",
+                "above_threshold": True,
+            }
+            for p in ranked
+        ]
+        await self._refresh_habit_stats(len(patterns))
+        self.habit_stats["preview_count"] = len(self.habit_preview)
 
     async def async_scan(self) -> int:
         self.status = "scanning"
@@ -185,7 +220,7 @@ class AdvisorCoordinator:
             # Cap dashboard preview — full discovery can be thousands of pairs.
             ranked = sorted(
                 habit_patterns,
-                key=lambda p: (p.support, p.confidence, p.lift),
+                key=lambda p: (p.lift, p.confidence, p.support),
                 reverse=True,
             )[:20]
             self.habit_preview = [
@@ -202,10 +237,10 @@ class AdvisorCoordinator:
                 for p in ranked
             ]
             pattern_count = len(habit_patterns)
+            # Observe-days gate only blocks promoting habits into suggestions.
+            # Keep habit_preview so the thresholds tab can always visualize metrics.
             if span < min_days:
                 habit_patterns = []
-            else:
-                self.habit_preview = []
             await self._refresh_habit_stats(pattern_count)
             self.habit_stats["recorder_backfilled"] = backfilled
             self.habit_stats["preview_count"] = len(self.habit_preview)
