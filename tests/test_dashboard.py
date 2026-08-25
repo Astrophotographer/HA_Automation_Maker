@@ -224,6 +224,26 @@ class ReasonsTests(unittest.TestCase):
         )
         self.assertIs(r["items"][0]["above_threshold"], False)
 
+    def test_demo_when_no_metrics(self) -> None:
+        r = build_reasons(
+            [
+                {
+                    "id": "1",
+                    "title": "일몰이면 조명 켜기",
+                    "status": "pending",
+                    "source": "catalog",
+                }
+            ],
+            min_confidence=0.5,
+            min_support=3,
+            min_lift=1.2,
+        )
+        demo = [x for x in r["items"] if x.get("source") == "demo"]
+        self.assertEqual(len(demo), 3)
+        self.assertTrue(all(x["has_metrics"] for x in demo))
+        self.assertTrue(demo[0]["above_threshold"])
+        self.assertFalse(demo[1]["above_threshold"])  # lift 1.05 < 1.2
+
 
 class ActionNormalizeTests(unittest.TestCase):
     def test_ok(self) -> None:

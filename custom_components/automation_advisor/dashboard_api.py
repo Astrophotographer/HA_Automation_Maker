@@ -253,6 +253,37 @@ def _reason_item(
     }
 
 
+_DEMO_THRESHOLD_PREVIEW: list[dict[str, Any]] = [
+    {
+        "title": "거실 조명 켜짐 → 환풍기 켜기",
+        "explanation": "데모 · support/confidence/lift 바 미리보기 (실제 습관 데이터 아님)",
+        "support": 5,
+        "confidence": 0.82,
+        "lift": 1.6,
+        "source": "demo",
+        "status": "preview",
+    },
+    {
+        "title": "현관 문 열림 → 거실 조명 켜기",
+        "explanation": "데모 · confidence는 통과, lift는 임계 미달 예시",
+        "support": 4,
+        "confidence": 0.55,
+        "lift": 1.05,
+        "source": "demo",
+        "status": "preview",
+    },
+    {
+        "title": "야간 모션 감지 → 복도 조명 켜기",
+        "explanation": "데모 · support가 임계 미달 예시",
+        "support": 2,
+        "confidence": 0.71,
+        "lift": 1.35,
+        "source": "demo",
+        "status": "preview",
+    },
+]
+
+
 def build_reasons(
     suggestions: list[dict[str, Any]],
     *,
@@ -294,6 +325,18 @@ def build_reasons(
                 min_lift=min_lift,
             )
         )
+
+    has_metrics = any(it.get("has_metrics") for it in items)
+    if not has_metrics:
+        for demo in _DEMO_THRESHOLD_PREVIEW:
+            items.append(
+                _reason_item(
+                    dict(demo),
+                    min_confidence=min_confidence,
+                    min_support=min_support,
+                    min_lift=min_lift,
+                )
+            )
 
     return {
         "thresholds": {

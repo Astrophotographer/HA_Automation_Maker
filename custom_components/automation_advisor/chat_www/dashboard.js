@@ -3,7 +3,7 @@
  */
 (function () {
   const STYLE_ID = "advisor-dashboard-style";
-  const STYLE_VER = "0.2.35";
+  const STYLE_VER = "0.2.36";
 
   function injectStyles() {
     let el = document.getElementById(STYLE_ID);
@@ -636,8 +636,8 @@
       rh += `<div class="ad-list">`;
       if (!items.length) {
         rh += `<div class="ad-meta">근거 항목이 없습니다. «로그 분석 · 스캔»을 실행해 보세요.</div>`;
-      } else if (!metricItems.length) {
-        rh += `<div class="ad-meta" style="margin-bottom:8px">카탈로그 추천 ${catalogOnly.length}개 · 습관 패턴 지표가 아직 없습니다. 위에서 «로그 분석 · 스캔»을 눌러 주세요.</div>`;
+      } else if (metricItems.length && metricItems.every((it) => it.source === "demo")) {
+        rh += `<div class="ad-meta" style="margin-bottom:8px">습관 패턴이 아직 없어 데모 지표 3개를 표시합니다. «로그 분석 · 스캔» 후 실제 패턴으로 바뀝니다.</div>`;
       } else {
         rh += `<div class="ad-meta" style="margin-bottom:8px">support / confidence / lift 비교 (상위 ${metricItems.length}개)</div>`;
       }
@@ -651,11 +651,13 @@
         const support = typeof it.support === "number" ? it.support : null;
         const lift = typeof it.lift === "number" ? it.lift : null;
         const src =
-          it.source === "habit_preview"
-            ? "미리보기"
-            : it.source === "habit"
-              ? "습관"
-              : it.source || "";
+          it.source === "demo"
+            ? "데모"
+            : it.source === "habit_preview"
+              ? "미리보기"
+              : it.source === "habit"
+                ? "습관"
+                : it.source || "";
         rh += `<div class="ad-card reason">
           <div class="ad-crow">
             <div>
