@@ -124,11 +124,14 @@ class DashboardRuntime:
         }
 
     def reasons(self) -> dict[str, Any]:
+        coord = self.coordinator
         return build_reasons(
-            list(self.coordinator.suggestions),
+            list(coord.suggestions),
             min_confidence=MIN_PATTERN_CONFIDENCE,
             min_support=MIN_PATTERN_SUPPORT,
             min_lift=MIN_PATTERN_LIFT,
+            habit=dict(coord.habit_stats or {}),
+            preview=list(getattr(coord, "habit_preview", None) or []),
         )
 
     async def action(self, kind: str, suggestion_id: str | None) -> dict[str, Any]:

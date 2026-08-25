@@ -129,18 +129,31 @@
       .ad-sub { display:none; }
       .ad-sub.on { display:block; }
       .ad-bar { height:8px; border-radius:999px; background:#243040; overflow:hidden; margin-top:6px; }
-      .ad-bar > i {
+      .ad-bar > .ad-fill {
         display:block; height:100%; border-radius:999px;
         background:linear-gradient(90deg,#9b8cff,var(--auto));
       }
-      .ad-bar.ok > i { background:linear-gradient(90deg,#2f9e6b,var(--ok)); }
-      .ad-bar.warn > i { background:linear-gradient(90deg,#c96a45,var(--warn)); }
+      .ad-bar.ok > .ad-fill { background:linear-gradient(90deg,#2f9e6b,var(--ok)); }
+      .ad-bar.warn > .ad-fill { background:linear-gradient(90deg,#c96a45,var(--warn)); }
       .ad-metrics { display:flex; flex-direction:column; gap:10px; margin-top:10px; }
       .ad-metric { font-size:11px; color:var(--muted); }
       .ad-metric .ad-mrow {
         display:flex; justify-content:space-between; align-items:baseline; gap:8px; margin-bottom:2px;
       }
       .ad-metric .ad-mval { color:#e8eef4; font-weight:700; font-variant-numeric:tabular-nums; }
+      .ad-thr-card {
+        border:1px solid var(--line); background:var(--panel2); border-radius:12px;
+        padding:12px 14px; margin-bottom:12px;
+      }
+      .ad-thr-grid {
+        display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:10px; margin-top:10px;
+      }
+      @media (max-width:720px) { .ad-thr-grid { grid-template-columns:1fr; } }
+      .ad-thr-pill {
+        background:#10161e; border:1px solid var(--line); border-radius:10px; padding:10px;
+      }
+      .ad-thr-pill .lab { font-size:11px; color:var(--muted); margin-bottom:4px; }
+      .ad-thr-pill .val { font-size:18px; font-weight:700; color:#e8eef4; font-variant-numeric:tabular-nums; }
       .ad-devhead {
         display:flex; width:100%; align-items:flex-start; justify-content:space-between; gap:8px;
         appearance:none; border:0; background:transparent; color:inherit; cursor:pointer;
@@ -373,7 +386,7 @@
       if (value == null || !Number.isFinite(value)) {
         return `<div class="ad-metric">
           <div class="ad-mrow"><span>${esc(label)}</span><span class="ad-mval">—</span></div>
-          <div class="ad-bar"><i style="width:0%"></i></div>
+          <div class="ad-bar"><span class="ad-fill" style="width:0%"></span></div>
         </div>`;
       }
       const thr = threshold == null || !Number.isFinite(threshold) || threshold <= 0 ? 1 : threshold;
@@ -383,7 +396,32 @@
       return `<div class="ad-metric">
         <div class="ad-mrow"><span>${esc(label)} <span style="opacity:.7">≥ ${esc(formatFn ? formatFn(thr) : thr)}</span></span>
         <span class="ad-mval">${esc(shown)}</span></div>
-        <div class="ad-bar ${pass ? "ok" : "warn"}"><i style="width:${pct}%"></i></div>
+        <div class="ad-bar ${pass ? "ok" : "warn"}"><span class="ad-fill" style="width:${pct}%"></span></div>
+      </div>`;
+    }
+
+    function thresholdLegend(minConf, minSup, minLift, habit) {
+      const span = habit && typeof habit.span_days === "number" ? habit.span_days : null;
+      const need = habit && typeof habit.min_observe_days === "number" ? habit.min_observe_days : null;
+      const ready = !!(habit && habit.ready);
+      const patterns = habit && typeof habit.patterns === "number" ? habit.patterns : 0;
+      const events = habit && typeof habit.events === "number" ? habit.events : 0;
+      let status = "패턴 지표를 기다리는 중";
+      if (ready) status = `습관 학습 준비됨 · 패턴 ${patterns}개 · 이벤트 ${events}`;
+      else if (span != null && need != null) {
+        status = `습관 학습 ${span}/${need}일 · 이벤트 ${events} · 패턴 미리보기 ${patterns}`;
+      }
+      return `<div class="ad-thr-card">
+        <div class="ad-cname">추천 임계값</div>
+        <div class="ad-meta" style="margin-top:4px">${esc(status)}</div>
+        <div class="ad-thr-grid">
+          <div class="ad-thr-pill"><div class="lab">support ≥</div><div class="val">${esc(minSup)}</div>
+            <div class="ad-bar ok"><span class="ad-fill" style="width:100%"></span></div></div>
+          <div class="ad-thr-pill"><div class="lab">confidence ≥</div><div class="val">${esc(Number(minConf).toFixed(2))}</div>
+            <div class="ad-bar ok"><span class="ad-fill" style="width:100%"></span></div></div>
+          <div class="ad-thr-pill"><div class="lab">lift ≥</div><div class="val">${esc(Number(minLift).toFixed(2))}</div>
+            <div class="ad-bar ok"><span class="ad-fill" style="width:100%"></span></div></div>
+        </div>
       </div>`;
     }
 
@@ -586,13 +624,28 @@
 
       const reasonEl = panel.querySelector("#ad-sub-reasons");
       const thr = (reasons && reasons.thresholds) || {};
+      const habit = (reasons && reasons.habit) || {};
       const items = (reasons && reasons.items) || [];
       const minConf = typeof thr.min_confidence === "number" ? thr.min_confidence : 0.5;
       const minSup = typeof thr.min_support === "number" ? thr.min_support : 3;
       const minLift = typeof thr.min_lift === "number" ? thr.min_lift : 1.2;
-      let rh = `<div class="ad-meta" style="margin-bottom:8px">임계 confidence ≥ ${esc(minConf)} · support ≥ ${esc(minSup)} · lift ≥ ${esc(minLift)}</div><div class="ad-list">`;
-      if (!items.length) rh += `<div class="ad-meta">근거 항목이 없습니다.</div>`;
-      items.forEach((it) => {
+      const metricItems = items.filter(
+        (it) =>
+          it.has_metrics ||
+          typeof it.confidence === "number" ||
+          typeof it.support === "number" ||
+          typeof it.lift === "number"
+      );
+      const catalogOnly = items.filter((it) => !metricItems.includes(it));
+      let rh = thresholdLegend(minConf, minSup, minLift, habit);
+      rh += `<div class="ad-list">`;
+      if (!metricItems.length && !catalogOnly.length) {
+        rh += `<div class="ad-meta">근거 항목이 없습니다. 로그 분석 · 스캔을 실행해 보세요.</div>`;
+      }
+      if (!metricItems.length && catalogOnly.length) {
+        rh += `<div class="ad-meta" style="margin-bottom:8px">카탈로그 추천 ${catalogOnly.length}개는 패턴 지표(support/confidence/lift)가 없습니다. 습관 패턴이 쌓이면 아래에 바가 채워집니다.</div>`;
+      }
+      metricItems.forEach((it) => {
         const conf =
           typeof it.confidence === "number"
             ? it.confidence
@@ -601,10 +654,16 @@
               : null;
         const support = typeof it.support === "number" ? it.support : null;
         const lift = typeof it.lift === "number" ? it.lift : null;
+        const src =
+          it.source === "habit_preview"
+            ? "미리보기"
+            : it.source === "habit"
+              ? "습관"
+              : it.source || "";
         rh += `<div class="ad-card reason">
           <div class="ad-crow">
             <div>
-              <div class="ad-cname">${esc(it.title)}</div>
+              <div class="ad-cname">${esc(it.title)}${src ? ` <span class="ad-meta">· ${esc(src)}</span>` : ""}</div>
               <div class="ad-meta">${esc(it.explanation || "")}</div>
             </div>
             <span class="ad-chip ${it.above_threshold ? "ok" : "warn"}">${it.above_threshold ? "통과" : "미달"}</span>

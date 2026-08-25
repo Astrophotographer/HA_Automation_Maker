@@ -65,6 +65,8 @@ class AdvisorCoordinator:
             "ready": False,
             "recorder_backfilled": 0,
         }
+        # Patterns found before observe-days gate; shown on threshold tab only.
+        self.habit_preview: list[dict] = []
         self._suggestions_file = Path(hass.config.path(SUGGESTIONS_FILENAME))
         self._automations_file = Path(hass.config.path(AUTOMATIONS_FILENAME))
         self._event_store = EventStore(hass.config.path(EVENT_DB_FILENAME))
@@ -175,13 +177,32 @@ class AdvisorCoordinator:
                 self._event_store.fetch_since, lookback
             )
             span = await self.hass.async_add_executor_job(self._event_store.span_days)
-            if span >= min_days:
-                habit_patterns = await self.hass.async_add_executor_job(
-                    discover_patterns, events
-                )
-            await self._refresh_habit_stats(len(habit_patterns))
+            # Always discover so the threshold tab can visualize metrics even
+            # before the observe-days gate promotes habits to suggestions.
+            habit_patterns = await self.hass.async_add_executor_job(
+                discover_patterns, events
+            )
+            self.habit_preview = [
+                {
+                    "title": p.title,
+                    "explanation": p.explanation,
+                    "support": p.support,
+                    "confidence": p.confidence,
+                    "lift": p.lift,
+                    "source": "habit_preview",
+                    "status": "preview",
+                    "above_threshold": True,
+                }
+                for p in habit_patterns
+            ]
+            if span < min_days:
+                habit_patterns = []
+            else:
+                self.habit_preview = []
+            await self._refresh_habit_stats(len(self.habit_preview) + len(habit_patterns))
             self.habit_stats["recorder_backfilled"] = backfilled
         else:
+            self.habit_preview = []
             await self._refresh_habit_stats(0)
             self.habit_stats["recorder_backfilled"] = 0
 

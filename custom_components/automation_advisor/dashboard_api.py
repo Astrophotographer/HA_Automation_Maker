@@ -218,51 +218,90 @@ def _as_int(value: Any) -> int | None:
         return None
 
 
+def _reason_item(
+    s: dict[str, Any],
+    *,
+    min_confidence: float,
+    min_support: int,
+    min_lift: float,
+) -> dict[str, Any]:
+    confidence = _as_float(s.get("confidence"))
+    support_n = _as_int(s.get("support"))
+    lift = _as_float(s.get("lift"))
+    checks: list[bool] = []
+    if confidence is not None:
+        checks.append(confidence >= float(min_confidence))
+    if support_n is not None:
+        checks.append(support_n >= int(min_support))
+    if lift is not None:
+        checks.append(lift >= float(min_lift))
+    above = all(checks) if checks else bool(s.get("above_threshold", True))
+    return {
+        "id": s.get("id"),
+        "title": s.get("title"),
+        "status": s.get("status"),
+        "source": s.get("source"),
+        "explanation": str(s.get("behavior") or s.get("explanation") or "")[:240],
+        "score": confidence,
+        "confidence": confidence,
+        "support": support_n,
+        "lift": lift,
+        "above_threshold": above,
+        "has_metrics": confidence is not None
+        or support_n is not None
+        or lift is not None,
+    }
+
+
 def build_reasons(
     suggestions: list[dict[str, Any]],
     *,
     min_confidence: float,
     min_support: int,
     min_lift: float = 1.2,
+    habit: dict[str, Any] | None = None,
+    preview: list[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
     items: list[dict[str, Any]] = []
     for s in suggestions:
         status = str(s.get("status") or "")
         if status not in {"pending", "previewed", "deployed", "dismissed"}:
             continue
-        confidence = _as_float(s.get("confidence"))
-        support_n = _as_int(s.get("support"))
-        lift = _as_float(s.get("lift"))
-        checks: list[bool] = []
-        if confidence is not None:
-            checks.append(confidence >= float(min_confidence))
-        if support_n is not None:
-            checks.append(support_n >= int(min_support))
-        if lift is not None:
-            checks.append(lift >= float(min_lift))
-        above = all(checks) if checks else True
         items.append(
-            {
-                "id": s.get("id"),
-                "title": s.get("title"),
-                "status": status,
-                "source": s.get("source"),
-                "explanation": str(s.get("behavior") or s.get("explanation") or "")[
-                    :240
-                ],
-                "score": confidence,
-                "confidence": confidence,
-                "support": support_n,
-                "lift": lift,
-                "above_threshold": above,
-            }
+            _reason_item(
+                s,
+                min_confidence=min_confidence,
+                min_support=min_support,
+                min_lift=min_lift,
+            )
         )
+
+    # Habit patterns discovered but not yet promoted to suggestions (observe gate).
+    seen_titles = {str(it.get("title") or "") for it in items if it.get("has_metrics")}
+    for p in preview or []:
+        title = str(p.get("title") or "")
+        if title and title in seen_titles:
+            continue
+        row = dict(p)
+        row.setdefault("status", "preview")
+        row.setdefault("source", "habit_preview")
+        row.setdefault("id", f"preview_{len(items)}")
+        items.append(
+            _reason_item(
+                row,
+                min_confidence=min_confidence,
+                min_support=min_support,
+                min_lift=min_lift,
+            )
+        )
+
     return {
         "thresholds": {
             "min_confidence": float(min_confidence),
             "min_support": int(min_support),
             "min_lift": float(min_lift),
         },
+        "habit": habit or {},
         "items": items,
     }
 

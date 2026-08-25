@@ -170,6 +170,41 @@ class ReasonsTests(unittest.TestCase):
         self.assertEqual(r["items"][0]["support"], 5)
         self.assertEqual(r["items"][0]["lift"], 1.5)
         self.assertIs(r["items"][0]["above_threshold"], True)
+        self.assertIs(r["items"][0]["has_metrics"], True)
+
+    def test_preview_and_habit(self) -> None:
+        r = build_reasons(
+            [
+                {
+                    "id": "c1",
+                    "title": "Catalog",
+                    "status": "pending",
+                    "source": "catalog",
+                }
+            ],
+            min_confidence=0.5,
+            min_support=3,
+            min_lift=1.2,
+            habit={"ready": False, "span_days": 1.5, "min_observe_days": 3, "patterns": 1},
+            preview=[
+                {
+                    "title": "문 열림 → 조명 on",
+                    "explanation": "반복",
+                    "support": 4,
+                    "confidence": 0.7,
+                    "lift": 1.8,
+                }
+            ],
+        )
+        self.assertFalse(r["habit"]["ready"])
+        titles = [x["title"] for x in r["items"]]
+        self.assertIn("Catalog", titles)
+        self.assertIn("문 열림 → 조명 on", titles)
+        preview = next(x for x in r["items"] if x["title"] == "문 열림 → 조명 on")
+        self.assertTrue(preview["has_metrics"])
+        self.assertEqual(preview["support"], 4)
+        catalog = next(x for x in r["items"] if x["title"] == "Catalog")
+        self.assertFalse(catalog["has_metrics"])
 
     def test_below_lift(self) -> None:
         r = build_reasons(
