@@ -405,11 +405,12 @@
       const need = habit && typeof habit.min_observe_days === "number" ? habit.min_observe_days : null;
       const ready = !!(habit && habit.ready);
       const patterns = habit && typeof habit.patterns === "number" ? habit.patterns : 0;
+      const preview = habit && typeof habit.preview_count === "number" ? habit.preview_count : 0;
       const events = habit && typeof habit.events === "number" ? habit.events : 0;
       let status = "패턴 지표를 기다리는 중";
       if (ready) status = `습관 학습 준비됨 · 패턴 ${patterns}개 · 이벤트 ${events}`;
       else if (span != null && need != null) {
-        status = `습관 학습 ${span}/${need}일 · 이벤트 ${events} · 패턴 미리보기 ${patterns}`;
+        status = `습관 학습 ${span}/${need}일 · 이벤트 ${events} · 발견 ${patterns} · 상위 ${preview || "—"}개 미리보기`;
       }
       return `<div class="ad-thr-card">
         <div class="ad-cname">추천 임계값</div>

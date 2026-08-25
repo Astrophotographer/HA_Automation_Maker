@@ -182,6 +182,12 @@ class AdvisorCoordinator:
             habit_patterns = await self.hass.async_add_executor_job(
                 discover_patterns, events
             )
+            # Cap dashboard preview — full discovery can be thousands of pairs.
+            ranked = sorted(
+                habit_patterns,
+                key=lambda p: (p.support, p.confidence, p.lift),
+                reverse=True,
+            )[:20]
             self.habit_preview = [
                 {
                     "title": p.title,
@@ -193,14 +199,16 @@ class AdvisorCoordinator:
                     "status": "preview",
                     "above_threshold": True,
                 }
-                for p in habit_patterns
+                for p in ranked
             ]
+            pattern_count = len(habit_patterns)
             if span < min_days:
                 habit_patterns = []
             else:
                 self.habit_preview = []
-            await self._refresh_habit_stats(len(self.habit_preview) + len(habit_patterns))
+            await self._refresh_habit_stats(pattern_count)
             self.habit_stats["recorder_backfilled"] = backfilled
+            self.habit_stats["preview_count"] = len(self.habit_preview)
         else:
             self.habit_preview = []
             await self._refresh_habit_stats(0)
