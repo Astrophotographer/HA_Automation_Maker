@@ -3,11 +3,17 @@
  */
 (function () {
   const STYLE_ID = "advisor-dashboard-style";
+  const STYLE_VER = "0.2.34";
 
   function injectStyles() {
-    if (document.getElementById(STYLE_ID)) return;
-    const el = document.createElement("style");
-    el.id = STYLE_ID;
+    let el = document.getElementById(STYLE_ID);
+    if (!el) {
+      el = document.createElement("style");
+      el.id = STYLE_ID;
+      document.head.appendChild(el);
+    }
+    // Always rewrite so stale CSS from an older panel session cannot hide entities.
+    el.setAttribute("data-ver", STYLE_VER);
     el.textContent = `
       .ad-shell {
         --dev: #3db8f5; --auto: #e8b86d; --ok: #3dd68c; --warn: #ff8f6b; --danger: #ff6b7a;
@@ -156,22 +162,14 @@
       .ad-thr-pill .val { font-size:18px; font-weight:700; color:#e8eef4; font-variant-numeric:tabular-nums; }
       .ad-devhead {
         display:flex; width:100%; align-items:flex-start; justify-content:space-between; gap:8px;
-        appearance:none; border:0; background:transparent; color:inherit; cursor:pointer;
-        padding:0; text-align:left; font:inherit; list-style:none;
       }
-      .ad-devhead::-webkit-details-marker { display:none; }
-      .ad-chev {
-        display:inline-block; width:12px; color:var(--muted); margin-right:4px;
-        transform:rotate(0deg); transition:transform .15s ease; font-size:11px;
-      }
-      details.ad-card.dev[open] .ad-chev { transform:rotate(90deg); }
       .ad-ents {
-        display:flex; margin-top:10px; padding-top:10px;
+        display:flex !important; margin-top:10px; padding-top:10px;
         border-top:1px solid var(--line); flex-direction:column; gap:8px;
         max-height:min(420px, 50vh); overflow:auto;
       }
       .ad-ent {
-        display:flex; justify-content:space-between; align-items:flex-start; gap:8px;
+        display:flex !important; justify-content:space-between; align-items:flex-start; gap:8px;
         padding:6px 8px; border-radius:8px; background:rgba(255,255,255,.03);
       }
       .ad-ent .ad-cname { font-size:12px; font-weight:650; margin-bottom:2px; }
@@ -215,7 +213,6 @@
       .ad-toast .d { font-size:11px; color:var(--term-dim); margin-top:2px; }
       @keyframes adIn { from { opacity:0; transform:translateY(8px);} to { opacity:1; transform:none;} }
     `;
-    document.head.appendChild(el);
   }
 
   function esc(s) {
@@ -482,23 +479,20 @@
             const multi = ents.length > 1;
             const dot = entityDotClass(d.ok, d.state);
             const entLabel = multi ? ` · 엔티티 ${ents.length}` : "";
-            const headInner = `
-              <div>
-                <div class="ad-cname">${multi ? `<span class="ad-chev" aria-hidden="true">▶</span>` : ""}<span class="ad-dot ${dot}"></span>${esc(d.name)}</div>
-                <div class="ad-meta">자동화 ${d.automation_count} · 추천 ${d.suggestion_count}${entLabel}</div>
-              </div>
-              <span class="ad-chip ${d.ok ? "ok" : "warn"}">${esc(d.state)}</span>`;
-            if (multi) {
-              // Default open so entities are visible without an extra click.
-              html += `<details class="ad-card dev multi" open>
-                <summary class="ad-devhead">${headInner}</summary>
-                ${renderEntityRows(ents)}
-              </details>`;
-            } else {
-              html += `<div class="ad-card dev">
-                <div class="ad-crow">${headInner}</div>
+            html += `<div class="ad-card dev ${multi ? "multi" : ""}">
+              <div class="ad-devhead">
+                <div>
+                  <div class="ad-cname"><span class="ad-dot ${dot}"></span>${esc(d.name)}</div>
+                  <div class="ad-meta">자동화 ${d.automation_count} · 추천 ${d.suggestion_count}${entLabel}</div>
+                </div>
+                <span class="ad-chip ${d.ok ? "ok" : "warn"}">${esc(d.state)}</span>
               </div>`;
+            if (multi) {
+              html += renderEntityRows(ents);
+            } else if (ents.length === 1) {
+              html += `<div class="ad-meta" style="margin-top:6px">${esc(ents[0].entity_id)}</div>`;
             }
+            html += `</div>`;
           });
           html += `</div>`;
         });

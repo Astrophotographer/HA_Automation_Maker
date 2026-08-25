@@ -1,7 +1,7 @@
 """Constants for Automation Advisor."""
 
 DOMAIN = "automation_advisor"
-VERSION = "0.2.33"
+VERSION = "0.2.34"
 
 CONF_TRIAL_MODE = "trial_mode"
 CONF_HABIT_LEARNING = "habit_learning"
